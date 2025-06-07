@@ -19,6 +19,7 @@ pub enum ReaderError {
 
     /// Database error when reading SQLite files
     #[error("Database error: {0}")]
+    #[cfg(feature = "sqlite")]
     Database(#[from] rusqlite::Error),
 
     /// Compression/decompression error

@@ -5,6 +5,7 @@ use crate::types::{Connection, Message, MessageDefinition};
 use std::collections::HashMap;
 use std::path::Path;
 
+#[cfg(feature = "sqlite")]
 pub mod sqlite;
 
 #[cfg(feature = "mcap")]
@@ -43,9 +44,18 @@ pub fn create_storage_reader(
     connections: Vec<Connection>,
 ) -> Result<Box<dyn StorageReader>> {
     match storage_id {
+        #[cfg(feature = "sqlite")]
         "sqlite3" => Ok(Box::new(sqlite::SqliteReader::new(paths, connections)?)),
+        #[cfg(not(feature = "sqlite"))]
+        "sqlite3" => Err(crate::error::ReaderError::UnsupportedStorageFormat {
+            format: "sqlite3 (feature not enabled)".to_string(),
+        }),
         #[cfg(feature = "mcap")]
         "mcap" => Ok(Box::new(mcap::McapStorageReader::new(paths, connections)?)),
+        #[cfg(not(feature = "mcap"))]
+        "mcap" => Err(crate::error::ReaderError::UnsupportedStorageFormat {
+            format: "mcap (feature not enabled)".to_string(),
+        }),
         "" => {
             // Auto-detect storage format from file extensions when storage_identifier is empty
             let has_db3 = paths
@@ -56,7 +66,16 @@ pub fn create_storage_reader(
                 .any(|path| path.extension().is_some_and(|ext| ext == "mcap"));
 
             if has_db3 {
-                Ok(Box::new(sqlite::SqliteReader::new(paths, connections)?))
+                #[cfg(feature = "sqlite")]
+                {
+                    Ok(Box::new(sqlite::SqliteReader::new(paths, connections)?))
+                }
+                #[cfg(not(feature = "sqlite"))]
+                {
+                    Err(crate::error::ReaderError::UnsupportedStorageFormat {
+                        format: "sqlite3 (feature not enabled)".to_string(),
+                    })
+                }
             } else if has_mcap {
                 #[cfg(feature = "mcap")]
                 {

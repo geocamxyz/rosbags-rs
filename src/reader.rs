@@ -103,6 +103,7 @@ impl Reader {
         storage.open()?;
 
         // Get actual topics from the storage (this may be more complete than metadata)
+        #[cfg(feature = "sqlite")]
         if let Some(sqlite_storage) = storage
             .as_any()
             .downcast_ref::<crate::storage::sqlite::SqliteReader>()

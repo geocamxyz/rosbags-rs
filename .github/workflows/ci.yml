@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, master ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, master ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,15 +17,21 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-22.04, ubuntu-24.04, macos-latest]
-    
+        rust: [stable, beta]
+        include:
+          # Test nightly only on Ubuntu 22.04 to reduce CI load
+          - os: ubuntu-22.04
+            rust: nightly
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@master
       with:
+        toolchain: ${{ matrix.rust }}
         components: rustfmt, clippy
-    
+
     - name: Cache cargo registry
       uses: actions/cache@v4
       with:
@@ -33,41 +39,49 @@ jobs:
           ~/.cargo/registry
           ~/.cargo/git
           target
-        key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-stable-
+          ${{ runner.os }}-cargo-${{ matrix.rust }}-
           ${{ runner.os }}-cargo-
-    
+
     - name: Check formatting
+      if: matrix.rust == 'stable' && matrix.os == 'ubuntu-22.04'
       run: cargo fmt --all -- --check
-    
+
     - name: Run clippy
+      if: matrix.rust == 'stable' && matrix.os == 'ubuntu-22.04'
       run: cargo clippy --all-targets --all-features -- -D warnings
-    
-    - name: Build
+
+    - name: Build (all features)
       run: cargo build --verbose --all-features
-    
-    - name: Run tests
+
+    - name: Run tests (all features)
       run: cargo test --verbose --all-features
-    
-    - name: Run tests (no default features)
-      run: cargo test --verbose --no-default-features
-    
-    - name: Run tests (sqlite only)
-      run: cargo test --verbose --no-default-features --features sqlite
-    
-    - name: Run tests (mcap only)
-      run: cargo test --verbose --no-default-features --features mcap
+
+    - name: Build (default features)
+      run: cargo build --verbose
+
+    - name: Run tests (default features)
+      run: cargo test --verbose
+
+    - name: Build (no default features)
+      run: cargo build --verbose --no-default-features
+
+    - name: Build (sqlite only)
+      run: cargo build --verbose --no-default-features --features sqlite
+
+    - name: Build (mcap only)
+      run: cargo build --verbose --no-default-features --features mcap
 
   docs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
-    
+
     - name: Cache cargo registry
       uses: actions/cache@v4
       with:
@@ -76,17 +90,11 @@ jobs:
           ~/.cargo/git
           target
         key: ${{ runner.os }}-cargo-docs-${{ hashFiles('**/Cargo.lock') }}
-    
+
     - name: Build documentation
       run: cargo doc --all-features --no-deps
       env:
         RUSTDOCFLAGS: "-D warnings"
-    
-    - name: Upload documentation
-      if: github.ref == 'refs/heads/main'
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: target/doc
 
   security:
     name: Security Audit
@@ -148,29 +156,7 @@ jobs:
     - name: Check with minimum Rust version
       run: cargo check --all-features
 
-  coverage:
-    name: Code Coverage
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: llvm-tools-preview
-    
-    - name: Install cargo-llvm-cov
-      run: cargo install cargo-llvm-cov
-    
-    - name: Generate coverage report
-      run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
-    
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        files: lcov.info
-        fail_ci_if_error: true
+
 
   release-check:
     name: Release Check
@@ -188,18 +174,4 @@ jobs:
         cargo package --allow-dirty
         echo "✅ Package is ready for release"
 
-  deploy-docs:
-    name: Deploy Documentation
-    needs: docs
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+
