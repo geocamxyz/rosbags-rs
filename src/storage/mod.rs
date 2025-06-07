@@ -41,7 +41,7 @@ pub trait StorageReader {
 pub fn create_storage_reader(
     storage_id: &str,
     paths: Vec<&Path>,
-    connections: Vec<Connection>,
+    #[allow(unused_variables)] connections: Vec<Connection>,
 ) -> Result<Box<dyn StorageReader>> {
     match storage_id {
         #[cfg(feature = "sqlite")]

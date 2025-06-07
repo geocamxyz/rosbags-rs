@@ -14,6 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test bag file paths
     let sqlite3_bag = "tests/test_bags/test_bag_sqlite3";
+    #[cfg(feature = "mcap")]
     let mcap_bag = "tests/test_bags/test_bag_mcap";
 
     // Read SQLite3 bag
