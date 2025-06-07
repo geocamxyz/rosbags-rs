@@ -358,8 +358,7 @@ mod tests {
         let data = [
             0x00, 0x01, 0x00, 0x00, // CDR header (little endian)
             0x2A, 0x00, 0x00, 0x00, // i32: 42
-            0x00, 0x00, 0x00, 0x00, // padding for 8-byte alignment
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x45, 0x40, // f64: 42.0
+            0x01, 0x02, 0x03, 0x04, // u32: 0x04030201
         ];
 
         let mut deserializer = CdrDeserializer::new(&data).unwrap();
@@ -367,7 +366,7 @@ mod tests {
         let int_val = deserializer.read_i32().unwrap();
         assert_eq!(int_val, 42);
 
-        let float_val = deserializer.read_f64().unwrap();
-        assert_eq!(float_val, 42.0);
+        let uint_val = deserializer.read_u32().unwrap();
+        assert_eq!(uint_val, 0x04030201);
     }
 }

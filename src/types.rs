@@ -189,3 +189,15 @@ impl Default for QosProfile {
         }
     }
 }
+
+impl Connection {
+    /// Get the message type (compatibility alias for message_type)
+    pub fn msgtype(&self) -> &str {
+        &self.message_type
+    }
+
+    /// Get the message count (compatibility alias for message_count)
+    pub fn msgcount(&self) -> u64 {
+        self.message_count
+    }
+}
