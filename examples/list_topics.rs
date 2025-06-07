@@ -1,6 +1,6 @@
 //! Example: List all topics in a ROS2 bag file
 
-use rosbag2_rs::{Reader, ReaderError};
+use rosbags_rs::{Reader, ReaderError};
 use std::env;
 use std::path::Path;
 
@@ -14,14 +14,14 @@ fn main() -> Result<(), ReaderError> {
     }
 
     let bag_path = Path::new(&args[1]);
-    
+
     // Create and open the reader
     let mut reader = Reader::new(bag_path)?;
     reader.open()?;
 
     // Get and display topics
     let topics = reader.topics();
-    
+
     if topics.is_empty() {
         println!("No topics found in bag: {}", bag_path.display());
         return Ok(());
@@ -29,7 +29,10 @@ fn main() -> Result<(), ReaderError> {
 
     println!("Topics in bag: {}", bag_path.display());
     println!("{:-<80}", "");
-    println!("{:<30} {:<40} {:<10}", "Topic Name", "Message Type", "Count");
+    println!(
+        "{:<30} {:<40} {:<10}",
+        "Topic Name", "Message Type", "Count"
+    );
     println!("{:-<80}", "");
 
     // Sort topics by name for consistent output
@@ -38,10 +41,10 @@ fn main() -> Result<(), ReaderError> {
 
     let mut total_messages = 0;
     for topic in &sorted_topics {
-        println!("{:<30} {:<40} {:<10}", 
-                 topic.name, 
-                 topic.message_type, 
-                 topic.message_count);
+        println!(
+            "{:<30} {:<40} {:<10}",
+            topic.name, topic.message_type, topic.message_count
+        );
         total_messages += topic.message_count;
     }
 
@@ -60,10 +63,14 @@ fn main() -> Result<(), ReaderError> {
             println!("  Message Type: {}", topic.message_type);
             println!("  Message Count: {}", topic.message_count);
             println!("  Connections: {}", topic.connections.len());
-            
+
             for (i, conn) in topic.connections.iter().enumerate() {
-                println!("    Connection {}: ID={}, Serialization={}", 
-                         i + 1, conn.id, conn.serialization_format);
+                println!(
+                    "    Connection {}: ID={}, Serialization={}",
+                    i + 1,
+                    conn.id,
+                    conn.serialization_format
+                );
                 if !conn.type_description_hash.is_empty() {
                     println!("      Type Hash: {}", conn.type_description_hash);
                 }

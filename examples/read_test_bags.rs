@@ -1,12 +1,12 @@
 //! Example demonstrating how to read both SQLite3 and MCAP test bag files
-//! 
+//!
 //! This example shows how to:
 //! 1. Load and read SQLite3 format bag files
 //! 2. Load and read MCAP format bag files  
 //! 3. Extract and display message data from both formats
 //! 4. Compare the data between formats
 
-use rosbag2_rs::{Reader, ReaderError};
+use rosbags_rs::{Reader, ReaderError};
 use std::collections::HashMap;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -35,7 +35,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     #[cfg(not(feature = "mcap"))]
     {
-        println!("\n⚠️  MCAP support not enabled. Compile with --features mcap to test MCAP format.");
+        println!(
+            "\n⚠️  MCAP support not enabled. Compile with --features mcap to test MCAP format."
+        );
     }
 
     // Demonstrate message filtering
@@ -77,20 +79,19 @@ fn read_bag_file(bag_path: &str) -> Result<BagData, ReaderError> {
     for connection in reader.connections() {
         topics_by_type
             .entry(connection.msgtype().to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(connection.topic.clone());
     }
 
     // Read sample messages (first 10)
     let mut sample_messages = Vec::new();
-    let mut count = 0;
-    for message_result in reader.messages()? {
+    for (count, message_result) in (reader.messages()?).enumerate() {
         if count >= 10 {
             break;
         }
-        
+
         let message = message_result?;
-        
+
         // Find the connection for this message
         let connection = reader
             .connections()
@@ -103,8 +104,6 @@ fn read_bag_file(bag_path: &str) -> Result<BagData, ReaderError> {
             msgtype: connection.msgtype().to_string(),
             data_size: message.data.len(),
         });
-        
-        count += 1;
     }
 
     Ok(BagData {
@@ -124,55 +123,87 @@ fn print_bag_summary(format_name: &str, data: &BagData) {
     println!("  Topics: {}", data.topic_count);
     println!("  Messages: {}", data.message_count);
     println!("  Duration: {:.2} seconds", data.duration_ns as f64 / 1e9);
-    
+
     println!("  Message types:");
     let mut sorted_types: Vec<_> = data.topics_by_type.iter().collect();
     sorted_types.sort_by_key(|(msgtype, _)| *msgtype);
-    
+
     for (msgtype, topics) in sorted_types.iter().take(10) {
         println!("    {} ({} topics)", msgtype, topics.len());
     }
-    
+
     if data.topics_by_type.len() > 10 {
-        println!("    ... and {} more message types", data.topics_by_type.len() - 10);
+        println!(
+            "    ... and {} more message types",
+            data.topics_by_type.len() - 10
+        );
     }
 
     println!("  Sample messages:");
     for (i, msg) in data.sample_messages.iter().enumerate() {
-        println!("    {}: {} ({}) - {} bytes", 
-                 i + 1, msg.topic, msg.msgtype, msg.data_size);
+        println!(
+            "    {}: {} ({}) - {} bytes",
+            i + 1,
+            msg.topic,
+            msg.msgtype,
+            msg.data_size
+        );
     }
 }
 
 /// Compare data between two bag formats
 #[cfg(feature = "mcap")]
 fn compare_bag_data(sqlite3_data: &BagData, mcap_data: &BagData) {
-    println!("  Topic count: SQLite3={}, MCAP={} {}", 
-             sqlite3_data.topic_count, 
-             mcap_data.topic_count,
-             if sqlite3_data.topic_count == mcap_data.topic_count { "✅" } else { "❌" });
-    
-    println!("  Message count: SQLite3={}, MCAP={} {}", 
-             sqlite3_data.message_count, 
-             mcap_data.message_count,
-             if sqlite3_data.message_count == mcap_data.message_count { "✅" } else { "❌" });
-    
-    println!("  Duration: SQLite3={:.2}s, MCAP={:.2}s {}", 
-             sqlite3_data.duration_ns as f64 / 1e9, 
-             mcap_data.duration_ns as f64 / 1e9,
-             if sqlite3_data.duration_ns == mcap_data.duration_ns { "✅" } else { "❌" });
+    println!(
+        "  Topic count: SQLite3={}, MCAP={} {}",
+        sqlite3_data.topic_count,
+        mcap_data.topic_count,
+        if sqlite3_data.topic_count == mcap_data.topic_count {
+            "✅"
+        } else {
+            "❌"
+        }
+    );
+
+    println!(
+        "  Message count: SQLite3={}, MCAP={} {}",
+        sqlite3_data.message_count,
+        mcap_data.message_count,
+        if sqlite3_data.message_count == mcap_data.message_count {
+            "✅"
+        } else {
+            "❌"
+        }
+    );
+
+    println!(
+        "  Duration: SQLite3={:.2}s, MCAP={:.2}s {}",
+        sqlite3_data.duration_ns as f64 / 1e9,
+        mcap_data.duration_ns as f64 / 1e9,
+        if sqlite3_data.duration_ns == mcap_data.duration_ns {
+            "✅"
+        } else {
+            "❌"
+        }
+    );
 
     // Compare message types
     let sqlite3_types: std::collections::HashSet<_> = sqlite3_data.topics_by_type.keys().collect();
     let mcap_types: std::collections::HashSet<_> = mcap_data.topics_by_type.keys().collect();
-    
-    println!("  Message types match: {}", 
-             if sqlite3_types == mcap_types { "✅" } else { "❌" });
-    
+
+    println!(
+        "  Message types match: {}",
+        if sqlite3_types == mcap_types {
+            "✅"
+        } else {
+            "❌"
+        }
+    );
+
     if sqlite3_types != mcap_types {
         let only_sqlite3: Vec<_> = sqlite3_types.difference(&mcap_types).collect();
         let only_mcap: Vec<_> = mcap_types.difference(&sqlite3_types).collect();
-        
+
         if !only_sqlite3.is_empty() {
             println!("    Only in SQLite3: {:?}", only_sqlite3);
         }
@@ -188,23 +219,27 @@ fn demonstrate_filtering(bag_path: &str) -> Result<(), ReaderError> {
     reader.open()?;
 
     let connections = reader.connections();
-    
+
     // Filter by a specific topic
     let test_topic = "/test/std_msgs/string";
     println!("  Filtering by topic: {}", test_topic);
-    
+
     let filtered_connections: Vec<_> = connections
         .iter()
         .filter(|c| c.topic == test_topic)
         .cloned()
         .collect();
-    
+
     if !filtered_connections.is_empty() {
         let mut count = 0;
         for message_result in reader.messages_filtered(Some(&filtered_connections), None, None)? {
             let message = message_result?;
-            println!("    Message {}: {} bytes at timestamp {}", 
-                     count + 1, message.data.len(), message.timestamp);
+            println!(
+                "    Message {}: {} bytes at timestamp {}",
+                count + 1,
+                message.data.len(),
+                message.timestamp
+            );
             count += 1;
         }
         println!("    Total messages for this topic: {}", count);
@@ -215,16 +250,18 @@ fn demonstrate_filtering(bag_path: &str) -> Result<(), ReaderError> {
     // Filter by message type
     let test_msgtype = "geometry_msgs/msg/Point";
     println!("  Filtering by message type: {}", test_msgtype);
-    
+
     let type_filtered_connections: Vec<_> = connections
         .iter()
         .filter(|c| c.msgtype() == test_msgtype)
         .cloned()
         .collect();
-    
+
     if !type_filtered_connections.is_empty() {
         let mut count = 0;
-        for message_result in reader.messages_filtered(Some(&type_filtered_connections), None, None)? {
+        for message_result in
+            reader.messages_filtered(Some(&type_filtered_connections), None, None)?
+        {
             let message = message_result?;
             println!("    Topic: {}, {} bytes", message.topic, message.data.len());
             count += 1;

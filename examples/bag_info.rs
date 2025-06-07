@@ -8,10 +8,10 @@
 //!
 //! Usage: cargo run --example bag_info <bag_path>
 
-use rosbag2_rs::{Reader, ReaderError};
+use chrono::TimeZone;
+use rosbags_rs::{Reader, ReaderError};
 use std::env;
 use std::path::Path;
-use chrono::TimeZone;
 
 fn main() -> Result<(), ReaderError> {
     // Get bag path from command line arguments
@@ -68,15 +68,13 @@ fn get_storage_files(bag_path: &Path) -> Result<Vec<String>, ReaderError> {
     let mut files = Vec::new();
 
     if let Ok(entries) = std::fs::read_dir(bag_path) {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                let path = entry.path();
-                if let Some(extension) = path.extension() {
-                    if extension == "db3" || extension == "mcap" {
-                        if let Some(filename) = path.file_name() {
-                            if let Some(filename_str) = filename.to_str() {
-                                files.push(filename_str.to_string());
-                            }
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if let Some(extension) = path.extension() {
+                if extension == "db3" || extension == "mcap" {
+                    if let Some(filename) = path.file_name() {
+                        if let Some(filename_str) = filename.to_str() {
+                            files.push(filename_str.to_string());
                         }
                     }
                 }
@@ -142,24 +140,36 @@ fn format_timestamp(timestamp_ns: u64) -> String {
     let timestamp_s = (timestamp_ns / 1_000_000_000) as i64;
     let timestamp_ns_frac = (timestamp_ns % 1_000_000_000) as u32;
 
-    if let Some(datetime) = chrono::Utc.timestamp_opt(timestamp_s, timestamp_ns_frac).single() {
-        format!("{} ({}.{:09})",
-                datetime.format("%b %e %Y %H:%M:%S%.9f"),
-                timestamp_s,
-                timestamp_ns_frac)
+    if let Some(datetime) = chrono::Utc
+        .timestamp_opt(timestamp_s, timestamp_ns_frac)
+        .single()
+    {
+        format!(
+            "{} ({}.{:09})",
+            datetime.format("%b %e %Y %H:%M:%S%.9f"),
+            timestamp_s,
+            timestamp_ns_frac
+        )
     } else {
-        format!("Invalid timestamp ({}.{:09})", timestamp_s, timestamp_ns_frac)
+        format!(
+            "Invalid timestamp ({}.{:09})",
+            timestamp_s, timestamp_ns_frac
+        )
     }
 }
 
 /// Format first topic with "Topic:" prefix
-fn format_first_topic(topic: &rosbag2_rs::types::TopicInfo) -> String {
-    format!("Topic: {} | Type: {} | Count: {} | Serialization Format: cdr",
-            topic.name, topic.message_type, topic.message_count)
+fn format_first_topic(topic: &rosbags_rs::types::TopicInfo) -> String {
+    format!(
+        "Topic: {} | Type: {} | Count: {} | Serialization Format: cdr",
+        topic.name, topic.message_type, topic.message_count
+    )
 }
 
 /// Format subsequent topics with proper alignment
-fn format_topic(topic: &rosbag2_rs::types::TopicInfo) -> String {
-    format!("Topic: {} | Type: {} | Count: {} | Serialization Format: cdr",
-            topic.name, topic.message_type, topic.message_count)
+fn format_topic(topic: &rosbags_rs::types::TopicInfo) -> String {
+    format!(
+        "Topic: {} | Type: {} | Count: {} | Serialization Format: cdr",
+        topic.name, topic.message_type, topic.message_count
+    )
 }

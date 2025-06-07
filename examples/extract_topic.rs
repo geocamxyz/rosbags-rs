@@ -11,10 +11,12 @@
 //! Example:
 //!   cargo run --example extract_topic ~/Downloads/V1_03_difficult /fcu/imu imu_data.txt
 
-use rosbag2_rs::Reader;
-use rosbag2_rs::cdr::CdrDeserializer;
-use rosbag2_rs::messages::{FromCdr, Imu, TransformStamped, PoseWithCovarianceStamped, NavSatFix,
-                          StdString, PointCloud2, Image, Odometry, PointStamped};
+use rosbags_rs::cdr::CdrDeserializer;
+use rosbags_rs::messages::{
+    FromCdr, Image, Imu, NavSatFix, Odometry, PointCloud2, PointStamped, PoseWithCovarianceStamped,
+    StdString, TransformStamped,
+};
+use rosbags_rs::Reader;
 use std::env;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -25,7 +27,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() != 4 {
         eprintln!("Usage: {} <bag_path> <topic_name> <output_file>", args[0]);
-        eprintln!("Example: {} ~/Downloads/V1_03_difficult /fcu/imu imu_data.txt", args[0]);
+        eprintln!(
+            "Example: {} ~/Downloads/V1_03_difficult /fcu/imu imu_data.txt",
+            args[0]
+        );
         eprintln!();
         eprintln!("Arguments:");
         eprintln!("  bag_path    - Path to the ROS2 bag directory");
@@ -38,25 +43,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let topic_name = &args[2];
     let output_file = &args[3];
 
-    println!("Extracting topic '{}' from bag: {}", topic_name, bag_path.display());
+    println!(
+        "Extracting topic '{}' from bag: {}",
+        topic_name,
+        bag_path.display()
+    );
     println!("Output file: {}", output_file);
 
     // Create and open the reader
-    let mut reader = Reader::new(bag_path).map_err(|e| {
-        format!("Failed to open bag file '{}': {}", bag_path.display(), e)
-    })?;
-    
-    reader.open().map_err(|e| {
-        format!("Failed to open bag for reading: {}", e)
-    })?;
+    let mut reader = Reader::new(bag_path)
+        .map_err(|e| format!("Failed to open bag file '{}': {}", bag_path.display(), e))?;
+
+    reader
+        .open()
+        .map_err(|e| format!("Failed to open bag for reading: {}", e))?;
 
     // Print basic bag information
     println!("\n=== Bag Information ===");
-    println!("Duration: {:.2} seconds", reader.duration() as f64 / 1_000_000_000.0);
+    println!(
+        "Duration: {:.2} seconds",
+        reader.duration() as f64 / 1_000_000_000.0
+    );
     println!("Total messages: {}", reader.message_count());
 
     // Find connections for the specified topic
-    let target_connections: Vec<_> = reader.connections()
+    let target_connections: Vec<_> = reader
+        .connections()
         .iter()
         .filter(|conn| conn.topic == *topic_name)
         .cloned()
@@ -84,16 +96,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create output file
     let output_path = Path::new(output_file);
-    let file = File::create(output_path).map_err(|e| {
-        format!("Failed to create output file '{}': {}", output_file, e)
-    })?;
+    let file = File::create(output_path)
+        .map_err(|e| format!("Failed to create output file '{}': {}", output_file, e))?;
     let mut writer = BufWriter::new(file);
 
     // Write header to output file
     writeln!(writer, "# ROS2 Bag Topic Extraction")?;
     writeln!(writer, "# Bag: {}", bag_path.display())?;
     writeln!(writer, "# Topic: {}", topic_name)?;
-    writeln!(writer, "# Extracted at: {}", chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC"))?;
+    writeln!(
+        writer,
+        "# Extracted at: {}",
+        chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+    )?;
     writeln!(writer, "#")?;
 
     // Determine output format based on message type
@@ -124,7 +139,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             writeln!(writer, "# Format: timestamp_ns,header_sec,header_nanosec,frame_id,child_frame_id,position_x,position_y,position_z,orientation_x,orientation_y,orientation_z,orientation_w,linear_x,linear_y,linear_z,angular_x,angular_y,angular_z")?;
         }
         "geometry_msgs/msg/PointStamped" => {
-            writeln!(writer, "# Format: timestamp_ns,header_sec,header_nanosec,frame_id,point_x,point_y,point_z")?;
+            writeln!(
+                writer,
+                "# Format: timestamp_ns,header_sec,header_nanosec,frame_id,point_x,point_y,point_z"
+            )?;
         }
         _ => {
             writeln!(writer, "# Format: timestamp_ns,data_size_bytes,data_hex")?;
@@ -144,10 +162,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Ok(message) => {
                         // Try to deserialize the message based on its type
                         let output_line = match message.connection.message_type.as_str() {
-                            "sensor_msgs/msg/Imu" => {
-                                match deserialize_imu_message(&message.data) {
-                                    Ok(imu) => {
-                                        format!("{},{},{},{},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6}",
+                            "sensor_msgs/msg/Imu" => match deserialize_imu_message(&message.data) {
+                                Ok(imu) => {
+                                    format!("{},{},{},{},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6}",
                                             message.timestamp,
                                             imu.header.stamp.sec,
                                             imu.header.stamp.nanosec,
@@ -163,13 +180,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             imu.linear_acceleration.y,
                                             imu.linear_acceleration.z
                                         )
-                                    }
-                                    Err(e) => {
-                                        eprintln!("Warning: Failed to deserialize IMU message {}: {}", message_count + 1, e);
-                                        format!("{},{},deserialize_error", message.timestamp, message.data.len())
-                                    }
                                 }
-                            }
+                                Err(e) => {
+                                    eprintln!(
+                                        "Warning: Failed to deserialize IMU message {}: {}",
+                                        message_count + 1,
+                                        e
+                                    );
+                                    format!(
+                                        "{},{},deserialize_error",
+                                        message.timestamp,
+                                        message.data.len()
+                                    )
+                                }
+                            },
                             "geometry_msgs/msg/TransformStamped" => {
                                 match deserialize_transform_message(&message.data) {
                                     Ok(transform) => {
@@ -190,7 +214,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Err(e) => {
                                         eprintln!("Warning: Failed to deserialize Transform message {}: {}", message_count + 1, e);
-                                        format!("{},{},deserialize_error", message.timestamp, message.data.len())
+                                        format!(
+                                            "{},{},deserialize_error",
+                                            message.timestamp,
+                                            message.data.len()
+                                        )
                                     }
                                 }
                             }
@@ -198,7 +226,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 match deserialize_pose_with_covariance_message(&message.data) {
                                     Ok(pose) => {
                                         // Format pose data with covariance matrix (36 elements)
-                                        let mut output = format!("{},{},{},{},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6}",
+                                        let mut output = format!(
+                                            "{},{},{},{},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6}",
                                             message.timestamp,
                                             pose.header.stamp.sec,
                                             pose.header.stamp.nanosec,
@@ -221,14 +250,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Err(e) => {
                                         eprintln!("Warning: Failed to deserialize PoseWithCovariance message {}: {}", message_count + 1, e);
-                                        format!("{},{},deserialize_error", message.timestamp, message.data.len())
+                                        format!(
+                                            "{},{},deserialize_error",
+                                            message.timestamp,
+                                            message.data.len()
+                                        )
                                     }
                                 }
                             }
                             "sensor_msgs/msg/NavSatFix" => {
                                 match deserialize_navsat_message(&message.data) {
                                     Ok(navsat) => {
-                                        format!("{},{},{},{},{},{},{:.9},{:.9},{:.6},{}",
+                                        format!(
+                                            "{},{},{},{},{},{},{:.9},{:.9},{:.6},{}",
                                             message.timestamp,
                                             navsat.header.stamp.sec,
                                             navsat.header.stamp.nanosec,
@@ -243,28 +277,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Err(e) => {
                                         eprintln!("Warning: Failed to deserialize NavSatFix message {}: {}", message_count + 1, e);
-                                        format!("{},{},deserialize_error", message.timestamp, message.data.len())
+                                        format!(
+                                            "{},{},deserialize_error",
+                                            message.timestamp,
+                                            message.data.len()
+                                        )
                                     }
                                 }
                             }
                             "std_msgs/msg/String" => {
                                 match deserialize_string_message(&message.data) {
                                     Ok(string_msg) => {
-                                        format!("{},\"{}\"",
+                                        format!(
+                                            "{},\"{}\"",
                                             message.timestamp,
                                             string_msg.data.replace("\"", "\"\"") // Escape quotes for CSV
                                         )
                                     }
                                     Err(e) => {
-                                        eprintln!("Warning: Failed to deserialize String message {}: {}", message_count + 1, e);
-                                        format!("{},{},deserialize_error", message.timestamp, message.data.len())
+                                        eprintln!(
+                                            "Warning: Failed to deserialize String message {}: {}",
+                                            message_count + 1,
+                                            e
+                                        );
+                                        format!(
+                                            "{},{},deserialize_error",
+                                            message.timestamp,
+                                            message.data.len()
+                                        )
                                     }
                                 }
                             }
                             "sensor_msgs/msg/PointCloud2" => {
                                 match deserialize_pointcloud2_message(&message.data) {
                                     Ok(pointcloud) => {
-                                        format!("{},{},{},{},{},{},{},{},{},{},{},{}",
+                                        format!(
+                                            "{},{},{},{},{},{},{},{},{},{},{},{}",
                                             message.timestamp,
                                             pointcloud.header.stamp.sec,
                                             pointcloud.header.stamp.nanosec,
@@ -281,14 +329,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Err(e) => {
                                         eprintln!("Warning: Failed to deserialize PointCloud2 message {}: {}", message_count + 1, e);
-                                        format!("{},{},deserialize_error", message.timestamp, message.data.len())
+                                        format!(
+                                            "{},{},deserialize_error",
+                                            message.timestamp,
+                                            message.data.len()
+                                        )
                                     }
                                 }
                             }
                             "sensor_msgs/msg/Image" => {
                                 match deserialize_image_message(&message.data) {
                                     Ok(image) => {
-                                        format!("{},{},{},{},{},{},{},{},{},{}",
+                                        format!(
+                                            "{},{},{},{},{},{},{},{},{},{}",
                                             message.timestamp,
                                             image.header.stamp.sec,
                                             image.header.stamp.nanosec,
@@ -302,8 +355,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         )
                                     }
                                     Err(e) => {
-                                        eprintln!("Warning: Failed to deserialize Image message {}: {}", message_count + 1, e);
-                                        format!("{},{},deserialize_error", message.timestamp, message.data.len())
+                                        eprintln!(
+                                            "Warning: Failed to deserialize Image message {}: {}",
+                                            message_count + 1,
+                                            e
+                                        );
+                                        format!(
+                                            "{},{},deserialize_error",
+                                            message.timestamp,
+                                            message.data.len()
+                                        )
                                     }
                                 }
                             }
@@ -333,14 +394,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Err(e) => {
                                         eprintln!("Warning: Failed to deserialize Odometry message {}: {}", message_count + 1, e);
-                                        format!("{},{},deserialize_error", message.timestamp, message.data.len())
+                                        format!(
+                                            "{},{},deserialize_error",
+                                            message.timestamp,
+                                            message.data.len()
+                                        )
                                     }
                                 }
                             }
                             "geometry_msgs/msg/PointStamped" => {
                                 match deserialize_pointstamped_message(&message.data) {
                                     Ok(point) => {
-                                        format!("{},{},{},{},{:.6},{:.6},{:.6}",
+                                        format!(
+                                            "{},{},{},{},{:.6},{:.6},{:.6}",
                                             message.timestamp,
                                             point.header.stamp.sec,
                                             point.header.stamp.nanosec,
@@ -352,13 +418,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Err(e) => {
                                         eprintln!("Warning: Failed to deserialize PointStamped message {}: {}", message_count + 1, e);
-                                        format!("{},{},deserialize_error", message.timestamp, message.data.len())
+                                        format!(
+                                            "{},{},deserialize_error",
+                                            message.timestamp,
+                                            message.data.len()
+                                        )
                                     }
                                 }
                             }
                             _ => {
                                 // Fallback to hex output for unsupported message types
-                                let hex_data = message.data.iter()
+                                let hex_data = message
+                                    .data
+                                    .iter()
                                     .map(|b| format!("{:02x}", b))
                                     .collect::<Vec<_>>()
                                     .join("");
@@ -397,7 +469,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Print summary
     println!("\n=== Extraction Complete ===");
     println!("Messages extracted: {}", message_count);
-    println!("Total data size: {} bytes ({:.2} KB)", total_bytes, total_bytes as f64 / 1024.0);
+    println!(
+        "Total data size: {} bytes ({:.2} KB)",
+        total_bytes,
+        total_bytes as f64 / 1024.0
+    );
     println!("Output written to: {}", output_file);
 
     if message_count == 0 {
@@ -426,14 +502,18 @@ fn deserialize_imu_message(data: &[u8]) -> Result<Imu, Box<dyn std::error::Error
 }
 
 /// Deserialize a TransformStamped message from CDR data
-fn deserialize_transform_message(data: &[u8]) -> Result<TransformStamped, Box<dyn std::error::Error>> {
+fn deserialize_transform_message(
+    data: &[u8],
+) -> Result<TransformStamped, Box<dyn std::error::Error>> {
     let mut deserializer = CdrDeserializer::new(data)?;
     let transform = TransformStamped::from_cdr(&mut deserializer)?;
     Ok(transform)
 }
 
 /// Deserialize a PoseWithCovarianceStamped message from CDR data
-fn deserialize_pose_with_covariance_message(data: &[u8]) -> Result<PoseWithCovarianceStamped, Box<dyn std::error::Error>> {
+fn deserialize_pose_with_covariance_message(
+    data: &[u8],
+) -> Result<PoseWithCovarianceStamped, Box<dyn std::error::Error>> {
     let mut deserializer = CdrDeserializer::new(data)?;
     let pose = PoseWithCovarianceStamped::from_cdr(&mut deserializer)?;
     Ok(pose)
@@ -475,10 +555,10 @@ fn deserialize_odometry_message(data: &[u8]) -> Result<Odometry, Box<dyn std::er
 }
 
 /// Deserialize a PointStamped message from CDR data
-fn deserialize_pointstamped_message(data: &[u8]) -> Result<PointStamped, Box<dyn std::error::Error>> {
+fn deserialize_pointstamped_message(
+    data: &[u8],
+) -> Result<PointStamped, Box<dyn std::error::Error>> {
     let mut deserializer = CdrDeserializer::new(data)?;
     let point = PointStamped::from_cdr(&mut deserializer)?;
     Ok(point)
 }
-
-
