@@ -48,8 +48,12 @@ pub fn create_storage_reader(
         "mcap" => Ok(Box::new(mcap::McapStorageReader::new(paths, connections)?)),
         "" => {
             // Auto-detect storage format from file extensions when storage_identifier is empty
-            let has_db3 = paths.iter().any(|path| path.extension().map_or(false, |ext| ext == "db3"));
-            let has_mcap = paths.iter().any(|path| path.extension().map_or(false, |ext| ext == "mcap"));
+            let has_db3 = paths
+                .iter()
+                .any(|path| path.extension().is_some_and(|ext| ext == "db3"));
+            let has_mcap = paths
+                .iter()
+                .any(|path| path.extension().is_some_and(|ext| ext == "mcap"));
 
             if has_db3 {
                 Ok(Box::new(sqlite::SqliteReader::new(paths, connections)?))

@@ -106,7 +106,7 @@ impl ReaderError {
     pub fn cdr_deserialization(
         message: impl Into<String>,
         position: usize,
-        data_length: usize
+        data_length: usize,
     ) -> Self {
         Self::CdrDeserialization {
             message: message.into(),

@@ -111,7 +111,7 @@ pub enum QosLiveliness {
 }
 
 /// Time specification for QoS constraints
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct QosTime {
     /// Seconds component
     pub sec: i32,
@@ -168,11 +168,7 @@ impl Default for MessageDefinition {
     }
 }
 
-impl Default for QosTime {
-    fn default() -> Self {
-        Self { sec: 0, nsec: 0 }
-    }
-}
+
 
 impl Default for QosProfile {
     fn default() -> Self {

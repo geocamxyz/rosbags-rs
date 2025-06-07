@@ -40,9 +40,8 @@ impl SqliteReader {
     /// Detect the schema version from the database
     fn detect_schema_version(conn: &SqliteConnection) -> Result<u32> {
         // Check if schema table exists
-        let mut stmt = conn.prepare(
-            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='schema'"
-        )?;
+        let mut stmt = conn
+            .prepare("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='schema'")?;
         let schema_table_exists: i32 = stmt.query_row([], |row| row.get(0))?;
 
         if schema_table_exists > 0 {
@@ -71,14 +70,17 @@ impl SqliteReader {
     }
 
     /// Load message definitions from the database (schema version 4+)
-    fn load_message_definitions(&self, conn: &SqliteConnection) -> Result<HashMap<String, MessageDefinition>> {
+    fn load_message_definitions(
+        &self,
+        conn: &SqliteConnection,
+    ) -> Result<HashMap<String, MessageDefinition>> {
         if self.schema_version < 4 {
             return Ok(HashMap::new()); // No message definitions in older schemas
         }
 
         let mut stmt = conn.prepare(
             "SELECT topic_type, encoding, encoded_message_definition, type_description_hash
-             FROM message_definitions ORDER BY id"
+             FROM message_definitions ORDER BY id",
         )?;
 
         let rows = stmt.query_map([], |row| {
@@ -120,7 +122,7 @@ impl SqliteReader {
     ) -> (String, Vec<Box<dyn rusqlite::ToSql>>) {
         let mut query = String::from(
             "SELECT topics.id, messages.timestamp, messages.data
-             FROM messages JOIN topics ON messages.topic_id = topics.id"
+             FROM messages JOIN topics ON messages.topic_id = topics.id",
         );
         let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
         let mut conditions = Vec::new();
@@ -129,7 +131,11 @@ impl SqliteReader {
         if let Some(conns) = connections {
             if !conns.is_empty() {
                 let topic_names: Vec<&str> = conns.iter().map(|c| c.topic.as_str()).collect();
-                let placeholders = topic_names.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+                let placeholders = topic_names
+                    .iter()
+                    .map(|_| "?")
+                    .collect::<Vec<_>>()
+                    .join(",");
                 conditions.push(format!("topics.name IN ({})", placeholders));
                 for topic in topic_names {
                     params.push(Box::new(topic.to_string()));
@@ -160,8 +166,6 @@ impl SqliteReader {
 
         (query, params)
     }
-
-
 }
 
 impl StorageReader for SqliteReader {
@@ -185,9 +189,10 @@ impl StorageReader for SqliteReader {
                 let table_count: i32 = stmt.query_row([], |row| row.get(0))?;
 
                 if table_count != 2 {
-                    return Err(ReaderError::generic(
-                        format!("Database {} is missing required tables", path.display())
-                    ));
+                    return Err(ReaderError::generic(format!(
+                        "Database {} is missing required tables",
+                        path.display()
+                    )));
                 }
             }
 
@@ -256,7 +261,11 @@ impl StorageReader for SqliteReader {
             for row in topic_rows {
                 let (topic_id, topic_name) = row?;
                 // Find the connection for this topic
-                if let Some(conn) = self.topic_connections.iter().find(|c| c.topic == topic_name) {
+                if let Some(conn) = self
+                    .topic_connections
+                    .iter()
+                    .find(|c| c.topic == topic_name)
+                {
                     topic_map.insert(topic_id, conn.clone());
                 }
             }
@@ -288,11 +297,9 @@ impl StorageReader for SqliteReader {
         }
 
         // Sort messages by timestamp
-        all_messages.sort_by(|a, b| {
-            match (a, b) {
-                (Ok(msg_a), Ok(msg_b)) => msg_a.timestamp.cmp(&msg_b.timestamp),
-                _ => std::cmp::Ordering::Equal,
-            }
+        all_messages.sort_by(|a, b| match (a, b) {
+            (Ok(msg_a), Ok(msg_b)) => msg_a.timestamp.cmp(&msg_b.timestamp),
+            _ => std::cmp::Ordering::Equal,
         });
 
         Ok(Box::new(all_messages.into_iter()))
@@ -328,14 +335,22 @@ impl SqliteReader {
                 let message_type: String = row.get(2)?;
                 let serialization_format: String = row.get(3)?;
                 let offered_qos_profiles: String = row.get(4)?;
-                Ok((id, name, message_type, serialization_format, offered_qos_profiles))
+                Ok((
+                    id,
+                    name,
+                    message_type,
+                    serialization_format,
+                    offered_qos_profiles,
+                ))
             })?;
 
             for topic_result in topic_rows {
-                let (topic_id, name, message_type, serialization_format, _qos_profiles) = topic_result?;
+                let (topic_id, name, message_type, serialization_format, _qos_profiles) =
+                    topic_result?;
 
                 // Get message count for this topic
-                let mut count_stmt = db_conn.prepare("SELECT COUNT(*) FROM messages WHERE topic_id = ?")?;
+                let mut count_stmt =
+                    db_conn.prepare("SELECT COUNT(*) FROM messages WHERE topic_id = ?")?;
                 let message_count: u64 = count_stmt.query_row([topic_id], |row| {
                     let count: i64 = row.get(0)?;
                     Ok(count as u64)
@@ -377,10 +392,10 @@ mod tests {
     fn test_sqlite_reader_open_close() {
         let mut reader = SqliteReader::new(vec![], vec![]).unwrap();
         assert!(!reader.is_open());
-        
+
         reader.open().unwrap();
         assert!(reader.is_open());
-        
+
         reader.close().unwrap();
         assert!(!reader.is_open());
     }

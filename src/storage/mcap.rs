@@ -13,8 +13,6 @@ use std::path::Path;
 #[cfg(feature = "mcap")]
 use mcap::MessageStream;
 
-
-
 /// MCAP storage reader implementation
 pub struct McapStorageReader {
     /// Paths to MCAP files
@@ -42,7 +40,8 @@ impl McapStorageReader {
 
         #[cfg(feature = "mcap")]
         {
-            let mcap_paths: Vec<std::path::PathBuf> = paths.iter().map(|p| p.to_path_buf()).collect();
+            let mcap_paths: Vec<std::path::PathBuf> =
+                paths.iter().map(|p| p.to_path_buf()).collect();
 
             Ok(Self {
                 mcap_paths,
@@ -61,8 +60,9 @@ impl McapStorageReader {
 
         for mapped_file in &self.mapped_files {
             // Create message stream from mapped file
-            let message_stream = MessageStream::new(mapped_file)
-                .map_err(|e| ReaderError::generic(format!("Failed to create message stream: {}", e)))?;
+            let message_stream = MessageStream::new(mapped_file).map_err(|e| {
+                ReaderError::generic(format!("Failed to create message stream: {}", e))
+            })?;
 
             // Read all messages to count them by topic
             for message_result in message_stream {
@@ -71,7 +71,9 @@ impl McapStorageReader {
                         let topic_name = &message.channel.topic;
                         let message_type = &message.channel.message_encoding;
 
-                        let entry = topic_map.entry(topic_name.clone()).or_insert((message_type.clone(), 0));
+                        let entry = topic_map
+                            .entry(topic_name.clone())
+                            .or_insert((message_type.clone(), 0));
                         entry.1 += 1;
                     }
                     Err(e) => {
@@ -121,15 +123,21 @@ impl StorageReader for McapStorageReader {
             self.mapped_files.clear();
 
             for path in &self.mcap_paths {
-                let file = File::open(path)
-                    .map_err(|e| ReaderError::generic(
-                        format!("Failed to open MCAP file {}: {}", path.display(), e)
-                    ))?;
+                let file = File::open(path).map_err(|e| {
+                    ReaderError::generic(format!(
+                        "Failed to open MCAP file {}: {}",
+                        path.display(),
+                        e
+                    ))
+                })?;
 
-                let mapped_file = unsafe { memmap2::Mmap::map(&file) }
-                    .map_err(|e| ReaderError::generic(
-                        format!("Failed to memory-map MCAP file {}: {}", path.display(), e)
-                    ))?;
+                let mapped_file = unsafe { memmap2::Mmap::map(&file) }.map_err(|e| {
+                    ReaderError::generic(format!(
+                        "Failed to memory-map MCAP file {}: {}",
+                        path.display(),
+                        e
+                    ))
+                })?;
 
                 self.mapped_files.push(mapped_file);
             }
@@ -171,15 +179,17 @@ impl StorageReader for McapStorageReader {
 
             for mapped_file in &self.mapped_files {
                 // Create message stream from mapped file
-                let message_stream = MessageStream::new(mapped_file)
-                    .map_err(|e| ReaderError::generic(format!("Failed to create message stream: {}", e)))?;
+                let message_stream = MessageStream::new(mapped_file).map_err(|e| {
+                    ReaderError::generic(format!("Failed to create message stream: {}", e))
+                })?;
 
                 for message_result in message_stream {
                     match message_result {
                         Ok(message) => {
                             // Check if this message matches the requested connections
                             if let Some(conns) = connections {
-                                let topic_matches = conns.iter().any(|c| c.topic == message.channel.topic);
+                                let topic_matches =
+                                    conns.iter().any(|c| c.topic == message.channel.topic);
                                 if !topic_matches {
                                     continue;
                                 }
@@ -199,7 +209,11 @@ impl StorageReader for McapStorageReader {
                             }
 
                             // Find or create a connection for this topic
-                            let connection = if let Some(conn) = self.topic_connections.iter().find(|c| c.topic == message.channel.topic) {
+                            let connection = if let Some(conn) = self
+                                .topic_connections
+                                .iter()
+                                .find(|c| c.topic == message.channel.topic)
+                            {
                                 conn.clone()
                             } else {
                                 // Create a temporary connection
@@ -225,20 +239,19 @@ impl StorageReader for McapStorageReader {
                             all_messages.push(Ok(msg));
                         }
                         Err(e) => {
-                            all_messages.push(Err(ReaderError::generic(
-                                format!("Failed to read MCAP message: {}", e)
-                            )));
+                            all_messages.push(Err(ReaderError::generic(format!(
+                                "Failed to read MCAP message: {}",
+                                e
+                            ))));
                         }
                     }
                 }
             }
 
             // Sort messages by timestamp
-            all_messages.sort_by(|a, b| {
-                match (a, b) {
-                    (Ok(msg_a), Ok(msg_b)) => msg_a.timestamp.cmp(&msg_b.timestamp),
-                    _ => std::cmp::Ordering::Equal,
-                }
+            all_messages.sort_by(|a, b| match (a, b) {
+                (Ok(msg_a), Ok(msg_b)) => msg_a.timestamp.cmp(&msg_b.timestamp),
+                _ => std::cmp::Ordering::Equal,
             });
 
             Ok(Box::new(all_messages.into_iter()))

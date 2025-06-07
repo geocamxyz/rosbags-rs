@@ -25,7 +25,7 @@ impl Reader {
     /// Create a new reader for the given bag path
     pub fn new<P: AsRef<Path>>(bag_path: P) -> Result<Self> {
         let bag_path = bag_path.as_ref().to_path_buf();
-        
+
         // Check if the bag directory exists
         if !bag_path.exists() {
             return Err(ReaderError::BagNotFound { path: bag_path });
@@ -87,9 +87,7 @@ impl Reader {
         // Check that all storage files exist
         for path in &storage_paths {
             if !path.exists() {
-                return Err(ReaderError::StorageFileNotFound {
-                    path: path.clone(),
-                });
+                return Err(ReaderError::StorageFileNotFound { path: path.clone() });
             }
         }
 
@@ -105,7 +103,10 @@ impl Reader {
         storage.open()?;
 
         // Get actual topics from the storage (this may be more complete than metadata)
-        if let Some(sqlite_storage) = storage.as_any().downcast_ref::<crate::storage::sqlite::SqliteReader>() {
+        if let Some(sqlite_storage) = storage
+            .as_any()
+            .downcast_ref::<crate::storage::sqlite::SqliteReader>()
+        {
             match sqlite_storage.get_topics_from_database() {
                 Ok(db_connections) => {
                     if !db_connections.is_empty() {
@@ -122,7 +123,10 @@ impl Reader {
         }
 
         #[cfg(feature = "mcap")]
-        if let Some(mcap_storage) = storage.as_any().downcast_ref::<crate::storage::mcap::McapStorageReader>() {
+        if let Some(mcap_storage) = storage
+            .as_any()
+            .downcast_ref::<crate::storage::mcap::McapStorageReader>()
+        {
             match mcap_storage.get_topics_from_mcap() {
                 Ok(mcap_connections) => {
                     if !mcap_connections.is_empty() {
@@ -130,7 +134,11 @@ impl Reader {
                         // This gives us the correct ROS2 message types from metadata.yaml
                         // but accurate message counts from the actual MCAP file
                         for mcap_conn in &mcap_connections {
-                            if let Some(metadata_conn) = self.connections.iter_mut().find(|c| c.topic == mcap_conn.topic) {
+                            if let Some(metadata_conn) = self
+                                .connections
+                                .iter_mut()
+                                .find(|c| c.topic == mcap_conn.topic)
+                            {
                                 // Update message count from MCAP (more accurate)
                                 metadata_conn.message_count = mcap_conn.message_count;
                             } else {
@@ -210,15 +218,15 @@ impl Reader {
         let mut topic_map: HashMap<String, TopicInfo> = HashMap::new();
 
         for connection in &self.connections {
-            let topic_info = topic_map.entry(connection.topic.clone()).or_insert_with(|| {
-                TopicInfo {
+            let topic_info = topic_map
+                .entry(connection.topic.clone())
+                .or_insert_with(|| TopicInfo {
                     name: connection.topic.clone(),
                     message_type: connection.message_type.clone(),
                     message_definition: connection.message_definition.clone(),
                     message_count: 0,
                     connections: Vec::new(),
-                }
-            });
+                });
 
             topic_info.message_count += connection.message_count;
             topic_info.connections.push(connection.clone());
@@ -272,8 +280,8 @@ impl Drop for Reader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::fs;
+    use tempfile::TempDir;
 
     fn create_test_metadata() -> String {
         r#"
@@ -297,7 +305,9 @@ rosbag2_bagfile_information:
         offered_qos_profiles: ""
         type_description_hash: ""
       message_count: 10
-"#.trim().to_string()
+"#
+        .trim()
+        .to_string()
     }
 
     #[test]
@@ -318,14 +328,14 @@ rosbag2_bagfile_information:
         let temp_dir = TempDir::new().unwrap();
         let metadata_path = temp_dir.path().join("metadata.yaml");
         fs::write(&metadata_path, create_test_metadata()).unwrap();
-        
+
         // Create empty database file
         let db_path = temp_dir.path().join("test.db3");
         fs::write(&db_path, b"").unwrap();
 
         let reader = Reader::new(temp_dir.path());
         assert!(reader.is_ok());
-        
+
         let reader = reader.unwrap();
         assert!(!reader.is_open());
         assert_eq!(reader.duration(), 1000000000);

@@ -6,7 +6,6 @@
 use crate::cdr::CdrDeserializer;
 use crate::error::Result;
 
-
 /// builtin_interfaces/msg/Time
 #[derive(Debug, Clone, PartialEq)]
 pub struct Time {
@@ -40,7 +39,12 @@ pub struct Quaternion {
 
 impl Default for Quaternion {
     fn default() -> Self {
-        Self { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            w: 1.0,
+        }
     }
 }
 
@@ -259,19 +263,20 @@ fn read_f64_manual(deserializer: &mut CdrDeserializer) -> Result<f64> {
         return Err(crate::error::ReaderError::cdr_deserialization(
             "Not enough data for f64",
             position,
-            data_len
+            data_len,
         ));
     }
 
     // Read 8 bytes for f64 with optimized error handling
     let mut bytes = [0u8; 8];
-    for i in 0..8 {
-        bytes[i] = deserializer.read_u8()
-            .map_err(|e| crate::error::ReaderError::cdr_deserialization(
+    for (i, byte) in bytes.iter_mut().enumerate().take(8) {
+        *byte = deserializer.read_u8().map_err(|e| {
+            crate::error::ReaderError::cdr_deserialization(
                 format!("Failed to read byte {} of f64: {}", i, e),
                 position + i,
-                data_len
-            ))?;
+                data_len,
+            )
+        })?;
     }
 
     Ok(f64::from_le_bytes(bytes))
@@ -280,8 +285,8 @@ fn read_f64_manual(deserializer: &mut CdrDeserializer) -> Result<f64> {
 /// Helper function to manually read f64 array without automatic alignment
 fn read_f64_array_manual<const N: usize>(deserializer: &mut CdrDeserializer) -> Result<[f64; N]> {
     let mut array = [0.0; N];
-    for i in 0..N {
-        array[i] = read_f64_manual(deserializer)?;
+    for item in array.iter_mut().take(N) {
+        *item = read_f64_manual(deserializer)?;
     }
     Ok(array)
 }
@@ -388,48 +393,88 @@ impl FromCdr for Imu {
 
         // Read orientation quaternion with manual f64 reading
         let orientation = Quaternion {
-            x: if deserializer.has_remaining(8) { read_f64_manual(deserializer)? } else { 0.0 },
-            y: if deserializer.has_remaining(8) { read_f64_manual(deserializer)? } else { 0.0 },
-            z: if deserializer.has_remaining(8) { read_f64_manual(deserializer)? } else { 0.0 },
-            w: if deserializer.has_remaining(8) { read_f64_manual(deserializer)? } else { 1.0 },
+            x: if deserializer.has_remaining(8) {
+                read_f64_manual(deserializer)?
+            } else {
+                0.0
+            },
+            y: if deserializer.has_remaining(8) {
+                read_f64_manual(deserializer)?
+            } else {
+                0.0
+            },
+            z: if deserializer.has_remaining(8) {
+                read_f64_manual(deserializer)?
+            } else {
+                0.0
+            },
+            w: if deserializer.has_remaining(8) {
+                read_f64_manual(deserializer)?
+            } else {
+                1.0
+            },
         };
 
         // For SQLite3 IMU messages, we may not have full covariance matrices
         // Read what we can and fill the rest with defaults
         let mut orientation_covariance = [0.0; 9];
-        for i in 0..9 {
+        for item in &mut orientation_covariance {
             if deserializer.has_remaining(8) {
-                orientation_covariance[i] = read_f64_manual(deserializer)?;
+                *item = read_f64_manual(deserializer)?;
             }
         }
 
         // Read angular velocity
         let angular_velocity = Vector3 {
-            x: if deserializer.has_remaining(8) { read_f64_manual(deserializer)? } else { 0.0 },
-            y: if deserializer.has_remaining(8) { read_f64_manual(deserializer)? } else { 0.0 },
-            z: if deserializer.has_remaining(8) { read_f64_manual(deserializer)? } else { 0.0 },
+            x: if deserializer.has_remaining(8) {
+                read_f64_manual(deserializer)?
+            } else {
+                0.0
+            },
+            y: if deserializer.has_remaining(8) {
+                read_f64_manual(deserializer)?
+            } else {
+                0.0
+            },
+            z: if deserializer.has_remaining(8) {
+                read_f64_manual(deserializer)?
+            } else {
+                0.0
+            },
         };
 
         // Read angular velocity covariance matrix (9 elements)
         let mut angular_velocity_covariance = [0.0; 9];
-        for i in 0..9 {
+        for item in &mut angular_velocity_covariance {
             if deserializer.has_remaining(8) {
-                angular_velocity_covariance[i] = read_f64_manual(deserializer)?;
+                *item = read_f64_manual(deserializer)?;
             }
         }
 
         // Read linear acceleration
         let linear_acceleration = Vector3 {
-            x: if deserializer.has_remaining(8) { read_f64_manual(deserializer)? } else { 0.0 },
-            y: if deserializer.has_remaining(8) { read_f64_manual(deserializer)? } else { 0.0 },
-            z: if deserializer.has_remaining(8) { read_f64_manual(deserializer)? } else { 0.0 },
+            x: if deserializer.has_remaining(8) {
+                read_f64_manual(deserializer)?
+            } else {
+                0.0
+            },
+            y: if deserializer.has_remaining(8) {
+                read_f64_manual(deserializer)?
+            } else {
+                0.0
+            },
+            z: if deserializer.has_remaining(8) {
+                read_f64_manual(deserializer)?
+            } else {
+                0.0
+            },
         };
 
         // Read linear acceleration covariance matrix (9 elements)
         let mut linear_acceleration_covariance = [0.0; 9];
-        for i in 0..9 {
+        for item in &mut linear_acceleration_covariance {
             if deserializer.has_remaining(8) {
-                linear_acceleration_covariance[i] = read_f64_manual(deserializer)?;
+                *item = read_f64_manual(deserializer)?;
             }
         }
 
@@ -445,8 +490,6 @@ impl FromCdr for Imu {
     }
 }
 
-
-
 impl FromCdr for PoseWithCovariance {
     fn from_cdr(deserializer: &mut CdrDeserializer) -> Result<Self> {
         let current_pos = deserializer.position();
@@ -456,7 +499,11 @@ impl FromCdr for PoseWithCovariance {
 
         // Skip to where pose data typically starts
         // Try position 28 first (same as SQLite3), then fallback to MCAP-specific positions
-        let target_pos = if current_pos <= 22 { 28 } else { current_pos + 6 };
+        let target_pos = if current_pos <= 22 {
+            28
+        } else {
+            current_pos + 6
+        };
 
         // Skip to target position
         let mut skip_pos = current_pos;
@@ -482,17 +529,17 @@ impl FromCdr for PoseWithCovariance {
             w: read_f64_manual(deserializer)?,
         };
 
-        let pose = Pose { position, orientation };
+        let pose = Pose {
+            position,
+            orientation,
+        };
 
         // Try to read covariance matrix, but handle the case where there's not enough data
-        let covariance = match read_f64_array_manual(deserializer) {
-            Ok(cov) => cov,
-            Err(_) => {
-                // If we can't read the full covariance matrix, use zeros
-                // This happens in MCAP format where the message might be truncated
-                [0.0; 36]
-            }
-        };
+        let covariance = read_f64_array_manual(deserializer).unwrap_or({
+            // If we can't read the full covariance matrix, use zeros
+            // This happens in MCAP format where the message might be truncated
+            [0.0; 36]
+        });
 
         Ok(Self { pose, covariance })
     }
@@ -527,10 +574,7 @@ impl FromCdr for PointStamped {
             z: read_f64_manual(deserializer)?,
         };
 
-        Ok(Self {
-            header,
-            point,
-        })
+        Ok(Self { header, point })
     }
 }
 
@@ -542,8 +586,6 @@ impl FromCdr for NavSatStatus {
         })
     }
 }
-
-
 
 impl FromCdr for NavSatFix {
     fn from_cdr(deserializer: &mut CdrDeserializer) -> Result<Self> {
@@ -625,10 +667,7 @@ impl FromCdr for Odometry {
 
         // Try to manually construct a header
         let header = Header {
-            stamp: Time {
-                sec: 0,
-                nanosec: 0,
-            },
+            stamp: Time { sec: 0, nanosec: 0 },
             frame_id: "odom".to_string(),
         };
 
@@ -640,9 +679,9 @@ impl FromCdr for Odometry {
                     // Try to read the string
                     let mut string_bytes = vec![0u8; len as usize];
                     let mut success = true;
-                    for i in 0..len as usize {
+                    for byte in string_bytes.iter_mut().take(len as usize) {
                         match deserializer.read_u8() {
-                            Ok(byte) => string_bytes[i] = byte,
+                            Ok(read_byte) => *byte = read_byte,
                             Err(_) => {
                                 success = false;
                                 break;
@@ -667,13 +706,30 @@ impl FromCdr for Odometry {
 
         // For Odometry, the pose data should be after header + child_frame_id
         // Let's try different positions to find the actual pose data
-        let pose_positions_to_try = [current_pos, current_pos + 4, current_pos + 8, 28, 32, 36, 40];
+        let pose_positions_to_try = [
+            current_pos,
+            current_pos + 4,
+            current_pos + 8,
+            28,
+            32,
+            36,
+            40,
+        ];
 
         let mut _pose_found = false;
         let mut pose = PoseWithCovariance {
             pose: Pose {
-                position: Point { x: 0.0, y: 0.0, z: 0.0 },
-                orientation: Quaternion { x: 0.0, y: 0.0, z: 0.0, w: 1.0 },
+                position: Point {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
+                orientation: Quaternion {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                    w: 1.0,
+                },
             },
             covariance: [0.0; 36],
         };
@@ -695,14 +751,16 @@ impl FromCdr for Odometry {
             }
 
             // Try to read pose data
-            if test_deserializer.has_remaining(56) { // 7 f64s for position + orientation
+            if test_deserializer.has_remaining(56) {
+                // 7 f64s for position + orientation
                 match Self::try_read_pose_at_position(&mut test_deserializer) {
                     Ok(read_pose) => {
                         // Check if the quaternion looks reasonable (w component should be close to 1 for identity)
-                        let quat_magnitude = (read_pose.pose.orientation.x.powi(2) +
-                                            read_pose.pose.orientation.y.powi(2) +
-                                            read_pose.pose.orientation.z.powi(2) +
-                                            read_pose.pose.orientation.w.powi(2)).sqrt();
+                        let quat_magnitude = (read_pose.pose.orientation.x.powi(2)
+                            + read_pose.pose.orientation.y.powi(2)
+                            + read_pose.pose.orientation.z.powi(2)
+                            + read_pose.pose.orientation.w.powi(2))
+                        .sqrt();
 
                         if quat_magnitude > 0.1 && quat_magnitude < 10.0 {
                             pose = read_pose;
@@ -718,8 +776,16 @@ impl FromCdr for Odometry {
         // Create a reasonable twist (velocity) - typically zero for most odometry
         let twist = TwistWithCovariance {
             twist: Twist {
-                linear: Vector3 { x: 0.0, y: 0.0, z: 0.0 },
-                angular: Vector3 { x: 0.0, y: 0.0, z: 0.0 },
+                linear: Vector3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
+                angular: Vector3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
             },
             covariance: [0.0; 36],
         };
@@ -752,9 +818,9 @@ impl Odometry {
 
         // Read covariance if available
         let mut covariance = [0.0; 36];
-        for i in 0..36 {
+        for item in &mut covariance {
             if deserializer.has_remaining(8) {
-                covariance[i] = read_f64_manual(deserializer)?;
+                *item = read_f64_manual(deserializer)?;
             } else {
                 break;
             }
@@ -878,8 +944,9 @@ pub fn deserialize_message(data: &[u8], message_type: &str) -> Result<Box<dyn st
             let msg = Odometry::from_cdr(&mut deserializer)?;
             Ok(Box::new(msg))
         }
-        _ => Err(crate::error::ReaderError::generic(
-            format!("Unsupported message type: {}", message_type)
-        )),
+        _ => Err(crate::error::ReaderError::generic(format!(
+            "Unsupported message type: {}",
+            message_type
+        ))),
     }
 }

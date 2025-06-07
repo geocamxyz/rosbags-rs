@@ -109,19 +109,19 @@ impl BagMetadata {
         let content = std::fs::read_to_string(path).map_err(|_| ReaderError::MetadataNotFound {
             path: path.to_path_buf(),
         })?;
-        
+
         let metadata: BagMetadata = serde_yaml::from_str(&content)?;
-        
+
         // Validate the metadata
         metadata.validate()?;
-        
+
         Ok(metadata)
     }
 
     /// Validate the metadata structure
     pub fn validate(&self) -> Result<()> {
         let info = &self.rosbag2_bagfile_information;
-        
+
         // Check supported version
         if info.version > 9 {
             return Err(ReaderError::UnsupportedVersion {
@@ -134,8 +134,14 @@ impl BagMetadata {
             "sqlite3" | "mcap" => {}
             "" => {
                 // Auto-detect storage format from file extensions when storage_identifier is empty
-                let has_db3 = info.relative_file_paths.iter().any(|path| path.ends_with(".db3"));
-                let has_mcap = info.relative_file_paths.iter().any(|path| path.ends_with(".mcap"));
+                let has_db3 = info
+                    .relative_file_paths
+                    .iter()
+                    .any(|path| path.ends_with(".db3"));
+                let has_mcap = info
+                    .relative_file_paths
+                    .iter()
+                    .any(|path| path.ends_with(".mcap"));
 
                 if !has_db3 && !has_mcap {
                     return Err(ReaderError::UnsupportedStorageFormat {
