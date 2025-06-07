@@ -22,8 +22,8 @@ The test suite provides:
 ### Test Data
 
 The tests use permanent test bag fixtures located at:
-- `bags/test_bags/test_bag_sqlite3` - SQLite3 format test bag
-- `bags/test_bags/test_bag_mcap` - MCAP format test bag
+- `tests/test_bags/test_bag_sqlite3` - SQLite3 format test bag
+- `test/test_bags/test_bag_mcap` - MCAP format test bag
 
 Each bag contains:
 - **94 topics** covering all major ROS2 message types
