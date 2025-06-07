@@ -1,13 +1,17 @@
 [package]
-name = "rosbag2-rs"
+name = "rosbags-rs"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
-description = "A Rust library for reading ROS2 bag files"
+authors = ["rosbags-rs contributors"]
+description = "A high-performance Rust library for reading ROS2 bag files with full Python rosbags compatibility"
 license = "Apache-2.0"
-repository = "https://github.com/yourusername/rosbag2-rs"
+repository = "https://github.com/rosbags-rs/rosbags-rs"
+homepage = "https://github.com/rosbags-rs/rosbags-rs"
+documentation = "https://docs.rs/rosbags-rs"
+readme = "README.md"
 keywords = ["ros", "ros2", "rosbag", "robotics", "serialization"]
-categories = ["parsing", "science::robotics"]
+categories = ["parsing", "science::robotics", "development-tools"]
+rust-version = "1.70"
 
 [dependencies]
 # Core dependencies
@@ -30,7 +34,7 @@ byteorder = "1.5"
 bytes = "1.5"
 
 # Async support (optional, for future use)
-tokio = { version = "1.0", features = ["full"], optional = true }
+tokio = { version = "1.0", features = ["rt", "fs"], optional = true }
 
 # MCAP support
 mcap = { version = "0.8", optional = true }
