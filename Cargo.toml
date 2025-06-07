@@ -1,0 +1,59 @@
+[package]
+name = "rosbag2-rs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "A Rust library for reading ROS2 bag files"
+license = "Apache-2.0"
+repository = "https://github.com/yourusername/rosbag2-rs"
+keywords = ["ros", "ros2", "rosbag", "robotics", "serialization"]
+categories = ["parsing", "science::robotics"]
+
+[dependencies]
+# Core dependencies
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Database support
+rusqlite = { version = "0.31", features = ["bundled"], optional = true }
+
+# Compression support
+zstd = "0.13"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Binary data handling
+byteorder = "1.5"
+bytes = "1.5"
+
+# Async support (optional, for future use)
+tokio = { version = "1.0", features = ["full"], optional = true }
+
+# MCAP support
+mcap = { version = "0.8", optional = true }
+memmap2 = { version = "0.9", optional = true }
+
+[dev-dependencies]
+tempfile = "3.8"
+pretty_assertions = "1.4"
+
+[features]
+default = ["sqlite", "mcap"]
+sqlite = ["rusqlite"]
+mcap = ["dep:mcap", "dep:memmap2"]
+async = ["tokio"]
+
+[[example]]
+name = "bag_info"
+path = "examples/bag_info.rs"
+
+[[example]]
+name = "list_topics"
+path = "examples/list_topics.rs"
+
+[[example]]
+name = "extract_topic"
+path = "examples/extract_topic.rs"
