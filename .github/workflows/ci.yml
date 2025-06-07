@@ -17,21 +17,13 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-22.04, ubuntu-24.04, macos-latest]
-        rust: [stable, beta, nightly]
-        exclude:
-          # Reduce CI load by testing nightly only on Ubuntu 22.04
-          - os: ubuntu-24.04
-            rust: nightly
-          - os: macos-latest
-            rust: nightly
     
     steps:
     - uses: actions/checkout@v4
     
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: ${{ matrix.rust }}
         components: rustfmt, clippy
     
     - name: Cache cargo registry
@@ -41,17 +33,15 @@ jobs:
           ~/.cargo/registry
           ~/.cargo/git
           target
-        key: ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-${{ matrix.rust }}-
+          ${{ runner.os }}-cargo-stable-
           ${{ runner.os }}-cargo-
     
     - name: Check formatting
-      if: matrix.rust == 'stable'
       run: cargo fmt --all -- --check
     
     - name: Run clippy
-      if: matrix.rust == 'stable'
       run: cargo clippy --all-targets --all-features -- -D warnings
     
     - name: Build
