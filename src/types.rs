@@ -168,8 +168,6 @@ impl Default for MessageDefinition {
     }
 }
 
-
-
 impl Default for QosProfile {
     fn default() -> Self {
         Self {

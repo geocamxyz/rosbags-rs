@@ -630,7 +630,8 @@ fn test_basic_message_parsing() {
         if !type_connections.is_empty() {
             if let Some(message_result) = reader
                 .messages_filtered(Some(&type_connections), None, None)
-                .expect("Failed to get messages").next()
+                .expect("Failed to get messages")
+                .next()
             {
                 let message = message_result.expect("Failed to read message");
 

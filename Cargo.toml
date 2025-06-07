@@ -1,6 +1,6 @@
 [package]
 name = "rosbags-rs"
-version = "0.2.0"
+version = "0.3.1"
 edition = "2021"
 authors = ["rosbags-rs contributors"]
 description = "A high-performance Rust library for reading ROS2 bag files with full Python rosbags compatibility"
@@ -31,17 +31,17 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # Binary data handling
 byteorder = "1.5"
-bytes = "1.5"
+bytes = "1.10"
 
 # Async support (optional, for future use)
-tokio = { version = "1.0", features = ["rt", "fs"], optional = true }
+tokio = { version = "1.45", features = ["rt", "fs"], optional = true }
 
 # MCAP support
 mcap = { version = "0.8", optional = true }
 memmap2 = { version = "0.9", optional = true }
 
 [dev-dependencies]
-tempfile = "3.8"
+tempfile = "3.20"
 pretty_assertions = "1.4"
 hex = "0.4"
 
