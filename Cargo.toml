@@ -1,6 +1,6 @@
 [package]
 name = "rosbags-rs"
-version = "0.3.3"
+version = "0.3.4"
 edition = "2021"
 authors = ["rosbags-rs contributors"]
 description = "A high-performance Rust library for reading ROS2 bag files with full Python rosbags compatibility"
