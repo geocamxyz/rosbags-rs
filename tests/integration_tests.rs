@@ -114,8 +114,6 @@ fn get_sqlite3_reference_data() -> (
     (metadata, topics, messages)
 }
 
-
-
 /// Validate that a bag file matches expected metadata
 #[cfg(feature = "sqlite")]
 fn validate_bag_metadata(reader: &Reader, expected: &ExpectedBagMetadata) -> Result<(), String> {
@@ -313,13 +311,19 @@ fn test_mcap_message_validation() {
 
         // Basic validation - ensure message has required fields
         assert!(!message.data.is_empty(), "Message data should not be empty");
-        assert!(!message.topic.is_empty(), "Message topic should not be empty");
+        assert!(
+            !message.topic.is_empty(),
+            "Message topic should not be empty"
+        );
 
         message_count += 1;
     }
 
     assert!(message_count > 0, "Should have read some messages");
-    println!("✅ MCAP message validation completed successfully - {} messages", message_count);
+    println!(
+        "✅ MCAP message validation completed successfully - {} messages",
+        message_count
+    );
 }
 
 /// Test message filtering by topic
