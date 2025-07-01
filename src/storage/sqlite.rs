@@ -136,7 +136,7 @@ impl SqliteReader {
                     .map(|_| "?")
                     .collect::<Vec<_>>()
                     .join(",");
-                conditions.push(format!("topics.name IN ({})", placeholders));
+                conditions.push(format!("topics.name IN ({placeholders})"));
                 for topic in topic_names {
                     params.push(Box::new(topic.to_string()));
                 }
@@ -398,5 +398,217 @@ mod tests {
 
         reader.close().unwrap();
         assert!(!reader.is_open());
+    }
+}
+
+/// SQLite storage writer implementation
+#[cfg(feature = "sqlite")]
+pub struct SqliteWriter {
+    /// Path to the database file
+    db_path: PathBuf,
+    /// Database connection
+    connection: Option<SqliteConnection>,
+    /// Whether compression is enabled (reserved for future use)
+    _compression_mode: crate::types::CompressionMode,
+    /// Whether the writer is currently open
+    is_open: bool,
+    /// Connection ID mapping: topic -> database topic_id
+    topic_id_map: HashMap<String, i32>,
+}
+
+#[cfg(feature = "sqlite")]
+impl SqliteWriter {
+    /// Create a new SQLite writer
+    pub fn new(path: &Path, compression_mode: crate::types::CompressionMode) -> Result<Self> {
+        // SQLite3 doesn't support storage-level compression
+        if compression_mode == crate::types::CompressionMode::Storage {
+            return Err(crate::error::BagError::writer(
+                "SQLite3 writer does not support storage-side compression",
+            ));
+        }
+
+        let db_path = path.join(format!(
+            "{}.db3",
+            path.file_name().unwrap().to_string_lossy()
+        ));
+
+        Ok(Self {
+            db_path,
+            connection: None,
+            _compression_mode: compression_mode,
+            is_open: false,
+            topic_id_map: HashMap::new(),
+        })
+    }
+
+    /// Create the database schema
+    fn create_schema(&self) -> Result<()> {
+        let conn = self.connection.as_ref().unwrap();
+
+        // ROS2 SQLite schema version 4
+        let schema = r#"
+            CREATE TABLE schema(
+                schema_version INTEGER PRIMARY KEY,
+                ros_distro TEXT NOT NULL
+            );
+            CREATE TABLE metadata(
+                id INTEGER PRIMARY KEY,
+                metadata_version INTEGER NOT NULL,
+                metadata TEXT NOT NULL
+            );
+            CREATE TABLE topics(
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                type TEXT NOT NULL,
+                serialization_format TEXT NOT NULL,
+                offered_qos_profiles TEXT NOT NULL,
+                type_description_hash TEXT NOT NULL
+            );
+            CREATE TABLE message_definitions(
+                id INTEGER PRIMARY KEY,
+                topic_type TEXT NOT NULL,
+                encoding TEXT NOT NULL,
+                encoded_message_definition TEXT NOT NULL,
+                type_description_hash TEXT NOT NULL
+            );
+            CREATE TABLE messages(
+                id INTEGER PRIMARY KEY,
+                topic_id INTEGER NOT NULL,
+                timestamp INTEGER NOT NULL,
+                data BLOB NOT NULL
+            );
+            CREATE INDEX timestamp_idx ON messages (timestamp ASC);
+            INSERT INTO schema(schema_version, ros_distro) VALUES (4, 'rosbags');
+        "#;
+
+        conn.execute_batch(schema)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl crate::storage::StorageWriter for SqliteWriter {
+    fn open(&mut self) -> Result<()> {
+        if self.is_open {
+            return Err(crate::error::BagError::BagAlreadyOpen);
+        }
+
+        // Create the database file
+        let connection = SqliteConnection::open(&self.db_path)?;
+        self.connection = Some(connection);
+
+        // Create the schema
+        self.create_schema()?;
+
+        self.is_open = true;
+        Ok(())
+    }
+
+    fn close(&mut self, version: u32, metadata: &str) -> Result<()> {
+        if !self.is_open {
+            return Ok(());
+        }
+
+        // Write metadata to the database
+        if let Some(conn) = &self.connection {
+            conn.execute(
+                "INSERT INTO metadata(metadata_version, metadata) VALUES (?1, ?2)",
+                (version, metadata),
+            )?;
+        }
+
+        // Close the database connection
+        self.connection = None;
+        self.is_open = false;
+        self.topic_id_map.clear();
+
+        Ok(())
+    }
+
+    fn add_msgtype(&mut self, connection: &Connection) -> Result<()> {
+        if !self.is_open {
+            return Err(crate::error::BagError::BagNotOpen);
+        }
+
+        let conn = self.connection.as_ref().unwrap();
+
+        // Determine encoding based on format
+        let encoding = match connection.message_definition.format {
+            MessageDefinitionFormat::Msg => "ros2msg",
+            MessageDefinitionFormat::Idl => "ros2idl",
+            MessageDefinitionFormat::None => "ros2msg", // Default fallback
+        };
+
+        // Insert into message_definitions table
+        conn.execute(
+            "INSERT INTO message_definitions(topic_type, encoding, encoded_message_definition, type_description_hash) VALUES (?1, ?2, ?3, ?4)",
+            (
+                &connection.message_type,
+                encoding,
+                &connection.message_definition.data,
+                &connection.type_description_hash,
+            ),
+        )?;
+
+        Ok(())
+    }
+
+    fn add_connection(
+        &mut self,
+        connection: &Connection,
+        offered_qos_profiles: &str,
+    ) -> Result<()> {
+        if !self.is_open {
+            return Err(crate::error::BagError::BagNotOpen);
+        }
+
+        let conn = self.connection.as_ref().unwrap();
+
+        // Insert topic into topics table
+        conn.execute(
+            "INSERT INTO topics(name, type, serialization_format, offered_qos_profiles, type_description_hash) VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                &connection.topic,
+                &connection.message_type,
+                &connection.serialization_format,
+                offered_qos_profiles,
+                &connection.type_description_hash,
+            ),
+        )?;
+
+        // Get the ID of the inserted topic
+        let topic_id = conn.last_insert_rowid() as i32;
+        self.topic_id_map.insert(connection.topic.clone(), topic_id);
+
+        Ok(())
+    }
+
+    fn write(&mut self, connection: &Connection, timestamp: u64, data: &[u8]) -> Result<()> {
+        if !self.is_open {
+            return Err(crate::error::BagError::BagNotOpen);
+        }
+
+        let topic_id = self
+            .topic_id_map
+            .get(&connection.topic)
+            .ok_or_else(|| crate::error::BagError::connection_not_found(&connection.topic))?;
+
+        let conn = self.connection.as_ref().unwrap();
+
+        // Insert message into messages table
+        conn.execute(
+            "INSERT INTO messages(topic_id, timestamp, data) VALUES (?1, ?2, ?3)",
+            (topic_id, timestamp as i64, data),
+        )?;
+
+        Ok(())
+    }
+
+    fn is_open(&self) -> bool {
+        self.is_open
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }

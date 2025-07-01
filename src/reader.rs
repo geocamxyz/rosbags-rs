@@ -117,7 +117,7 @@ impl Reader {
                     // Otherwise keep the metadata-based connections as fallback
                 }
                 Err(e) => {
-                    eprintln!("Warning: Failed to read topics from database: {}", e);
+                    eprintln!("Warning: Failed to read topics from database: {e}");
                     // Continue with metadata-based connections
                 }
             }
@@ -156,7 +156,7 @@ impl Reader {
                     // Otherwise keep the metadata-based connections as fallback
                 }
                 Err(e) => {
-                    eprintln!("Warning: Failed to read topics from MCAP: {}", e);
+                    eprintln!("Warning: Failed to read topics from MCAP: {e}");
                     // Continue with metadata-based connections
                 }
             }

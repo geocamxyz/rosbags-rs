@@ -272,7 +272,7 @@ fn read_f64_manual(deserializer: &mut CdrDeserializer) -> Result<f64> {
     for (i, byte) in bytes.iter_mut().enumerate().take(8) {
         *byte = deserializer.read_u8().map_err(|e| {
             crate::error::ReaderError::cdr_deserialization(
-                format!("Failed to read byte {} of f64: {}", i, e),
+                format!("Failed to read byte {i} of f64: {e}"),
                 position + i,
                 data_len,
             )
@@ -945,8 +945,7 @@ pub fn deserialize_message(data: &[u8], message_type: &str) -> Result<Box<dyn st
             Ok(Box::new(msg))
         }
         _ => Err(crate::error::ReaderError::generic(format!(
-            "Unsupported message type: {}",
-            message_type
+            "Unsupported message type: {message_type}"
         ))),
     }
 }
