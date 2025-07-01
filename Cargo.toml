@@ -24,7 +24,7 @@ anyhow = "1.0"
 rusqlite = { version = "0.31", features = ["bundled"], optional = true }
 
 # Compression support
-zstd = "0.13"
+zstd = { version = "0.13", optional = true }
 
 # Time handling
 chrono = { version = "0.4", features = ["serde"] }
@@ -46,9 +46,10 @@ pretty_assertions = "1.4"
 hex = "0.4"
 
 [features]
-default = ["sqlite", "mcap"]
+default = ["sqlite", "mcap", "compression"]
 sqlite = ["rusqlite"]
 mcap = ["dep:mcap", "dep:memmap2"]
+compression = ["dep:zstd"]
 async = ["tokio"]
 
 [[example]]
