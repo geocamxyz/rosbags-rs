@@ -4,11 +4,17 @@ use std::path::PathBuf;
 use thiserror::Error;
 
 /// Result type alias for rosbag2-rs operations
-pub type Result<T> = std::result::Result<T, ReaderError>;
+pub type Result<T> = std::result::Result<T, BagError>;
 
-/// Errors that can occur when reading ROS2 bag files
+/// Result type alias for reader operations (backwards compatibility)
+pub type ReaderResult<T> = std::result::Result<T, BagError>;
+
+/// Result type alias for writer operations
+pub type WriterResult<T> = std::result::Result<T, BagError>;
+
+/// Errors that can occur when working with ROS2 bag files
 #[derive(Error, Debug)]
-pub enum ReaderError {
+pub enum BagError {
     /// IO error when accessing files
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
@@ -29,6 +35,10 @@ pub enum ReaderError {
     /// Bag file not found
     #[error("Bag file not found: {path}")]
     BagNotFound { path: PathBuf },
+
+    /// Bag already exists
+    #[error("Bag already exists: {path}")]
+    BagAlreadyExists { path: PathBuf },
 
     /// Metadata file not found
     #[error("Metadata file not found: {path}")]
@@ -58,6 +68,10 @@ pub enum ReaderError {
     #[error("Bag is not open - call open() first")]
     BagNotOpen,
 
+    /// Bag is already open
+    #[error("Bag is already open")]
+    BagAlreadyOpen,
+
     /// Invalid message data
     #[error("Invalid message data: {reason}")]
     InvalidMessageData { reason: String },
@@ -78,15 +92,41 @@ pub enum ReaderError {
     #[error("Schema validation error: {reason}")]
     SchemaValidation { reason: String },
 
+    /// Connection not found
+    #[error("Connection not found for topic: {topic}")]
+    ConnectionNotFound { topic: String },
+
+    /// Connection already exists
+    #[error("Connection already exists for topic: {topic}")]
+    ConnectionAlreadyExists { topic: String },
+
+    /// Invalid QoS profile
+    #[error("Invalid QoS profile: {reason}")]
+    InvalidQosProfile { reason: String },
+
+    /// Writer error with custom message
+    #[error("Writer error: {message}")]
+    Writer { message: String },
+
     /// Generic error with custom message
-    #[error("Reader error: {message}")]
+    #[error("Bag error: {message}")]
     Generic { message: String },
 }
 
-impl ReaderError {
+/// Type alias for backwards compatibility
+pub type ReaderError = BagError;
+
+impl BagError {
     /// Create a new generic error with a custom message
     pub fn generic(message: impl Into<String>) -> Self {
         Self::Generic {
+            message: message.into(),
+        }
+    }
+
+    /// Create a writer error
+    pub fn writer(message: impl Into<String>) -> Self {
+        Self::Writer {
             message: message.into(),
         }
     }
@@ -126,6 +166,27 @@ impl ReaderError {
     /// Create a schema validation error
     pub fn schema_validation(reason: impl Into<String>) -> Self {
         Self::SchemaValidation {
+            reason: reason.into(),
+        }
+    }
+
+    /// Create a connection not found error
+    pub fn connection_not_found(topic: impl Into<String>) -> Self {
+        Self::ConnectionNotFound {
+            topic: topic.into(),
+        }
+    }
+
+    /// Create a connection already exists error
+    pub fn connection_already_exists(topic: impl Into<String>) -> Self {
+        Self::ConnectionAlreadyExists {
+            topic: topic.into(),
+        }
+    }
+
+    /// Create an invalid QoS profile error
+    pub fn invalid_qos_profile(reason: impl Into<String>) -> Self {
+        Self::InvalidQosProfile {
             reason: reason.into(),
         }
     }

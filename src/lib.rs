@@ -144,6 +144,11 @@ pub mod metadata;
 /// The [`Reader`] struct provides the primary interface for reading ROS2 bag files.
 pub mod reader;
 
+/// Main writer interface.
+///
+/// The [`Writer`] struct provides the primary interface for writing ROS2 bag files.
+pub mod writer;
+
 /// Storage backend implementations.
 ///
 /// Supports both SQLite3 and MCAP storage formats with pluggable architecture.
@@ -155,10 +160,13 @@ pub mod storage;
 pub mod types;
 
 // Re-export main types for convenience
-pub use error::{ReaderError, Result};
+pub use error::{BagError, ReaderError, Result, WriterResult};
 pub use metadata::{BagMetadata, TopicMetadata};
 pub use reader::Reader;
-pub use types::{Connection, Message, TopicInfo};
+pub use types::{
+    CompressionFormat, CompressionMode, Connection, Message, StoragePlugin, TopicInfo,
+};
+pub use writer::Writer;
 
 #[cfg(test)]
 mod tests {

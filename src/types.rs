@@ -159,6 +159,37 @@ pub struct StartingTime {
     pub nanoseconds_since_epoch: u64,
 }
 
+/// Compression mode for bag files
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompressionMode {
+    /// No compression
+    None,
+    /// Compress individual messages
+    Message,
+    /// Compress entire file
+    File,
+    /// Storage-specific compression
+    Storage,
+}
+
+/// Compression format
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompressionFormat {
+    /// No compression format specified
+    None,
+    /// Zstandard compression
+    Zstd,
+}
+
+/// Storage plugin type
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StoragePlugin {
+    /// SQLite3 storage
+    Sqlite3,
+    /// MCAP storage
+    Mcap,
+}
+
 impl Default for MessageDefinition {
     fn default() -> Self {
         Self {
@@ -193,5 +224,37 @@ impl Connection {
     /// Get the message count (compatibility alias for message_count)
     pub fn msgcount(&self) -> u64 {
         self.message_count
+    }
+}
+
+impl CompressionMode {
+    /// Convert to string representation
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            CompressionMode::None => "",
+            CompressionMode::Message => "message",
+            CompressionMode::File => "file",
+            CompressionMode::Storage => "storage",
+        }
+    }
+}
+
+impl CompressionFormat {
+    /// Convert to string representation
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            CompressionFormat::None => "",
+            CompressionFormat::Zstd => "zstd",
+        }
+    }
+}
+
+impl StoragePlugin {
+    /// Convert to string representation
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            StoragePlugin::Sqlite3 => "sqlite3",
+            StoragePlugin::Mcap => "mcap",
+        }
     }
 }
