@@ -96,6 +96,21 @@ VERBOSE=1 cargo run --example list_topics /path/to/rosbag2_directory
 cargo run --example extract_topic /path/to/rosbag2_directory /topic_name output.txt
 ```
 
+### Extract Topic Data to Files
+
+Extract topic data and save as appropriate file formats:
+
+```bash
+# Extract geometry/navigation data to CSV
+cargo run --example extract_topic_data /path/to/bag /odom ./extracted_data/
+
+# Extract image data to image files
+cargo run --example extract_topic_data /path/to/bag /camera/image_raw ./extracted_images/
+
+# Extract IMU data to CSV with timestamps
+cargo run --example extract_topic_data /path/to/bag /imu/data ./extracted_imu/
+```
+
 ### Read Test Bags (Demo)
 
 ```bash

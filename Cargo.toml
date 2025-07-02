@@ -44,6 +44,7 @@ memmap2 = { version = "0.9", optional = true }
 tempfile = "3.20"
 pretty_assertions = "1.4"
 hex = "0.4"
+image = "0.24"
 
 [features]
 default = ["sqlite", "mcap", "compression"]
@@ -63,6 +64,10 @@ path = "examples/list_topics.rs"
 [[example]]
 name = "extract_topic"
 path = "examples/extract_topic.rs"
+
+[[example]]
+name = "extract_topic_data"
+path = "examples/extract_topic_data.rs"
 
 [[example]]
 name = "read_test_bags"
