@@ -27,22 +27,26 @@
 //!   # Copy with compression
 //!   cargo run --example copy_bag_filtered ./input_bag ./output_bag --compression
 
-use rosbags_rs::{
-    CompressionFormat, CompressionMode, Reader, StoragePlugin, Writer,
-};
+use rosbags_rs::{CompressionFormat, CompressionMode, Reader, StoragePlugin, Writer};
 use std::collections::HashSet;
 use std::env;
 use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
-    
+
     if args.len() < 3 {
         eprintln!("Usage: {} <input_bag> <output_bag> [--topics topic1,topic2,...] [--compression] [--start timestamp] [--end timestamp]", args[0]);
         eprintln!("\nExamples:");
         eprintln!("  {} ./input_bag ./output_bag", args[0]);
-        eprintln!("  {} ./input_bag ./output_bag --topics /camera/image_raw,/imu/data", args[0]);
-        eprintln!("  {} ./input_bag ./output_bag --compression --start 1000000000 --end 2000000000", args[0]);
+        eprintln!(
+            "  {} ./input_bag ./output_bag --topics /camera/image_raw,/imu/data",
+            args[0]
+        );
+        eprintln!(
+            "  {} ./input_bag ./output_bag --compression --start 1000000000 --end 2000000000",
+            args[0]
+        );
         std::process::exit(1);
     }
 
@@ -102,9 +106,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("🔄 Copying ROS2 bag: {} -> {}", input_path, output_path);
-    
+
     if let Some(ref topics) = topic_filter {
-        println!("📝 Topic filter: {}", topics.iter().cloned().collect::<Vec<_>>().join(", "));
+        println!(
+            "📝 Topic filter: {}",
+            topics.iter().cloned().collect::<Vec<_>>().join(", ")
+        );
     } else {
         println!("📝 Copying all topics");
     }
@@ -126,15 +133,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     reader.open()?;
 
     println!("📊 Input bag information:");
-    println!("   Duration: {:.2} seconds", reader.duration() as f64 / 1_000_000_000.0);
+    println!(
+        "   Duration: {:.2} seconds",
+        reader.duration() as f64 / 1_000_000_000.0
+    );
     println!("   Message count: {}", reader.message_count());
     println!("   Topics: {}", reader.topics().len());
 
     // Show available topics
     println!("\n📋 Available topics:");
     for topic in reader.topics() {
-        println!("   {} ({}) - {} messages", 
-                topic.name, topic.message_type, topic.message_count);
+        println!(
+            "   {} ({}) - {} messages",
+            topic.name, topic.message_type, topic.message_count
+        );
     }
 
     // Create output writer
@@ -146,18 +158,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mut writer = Writer::new(output_path, Some(9), Some(storage_plugin))?;
-    
+
     if enable_compression {
         writer.set_compression(CompressionMode::Message, CompressionFormat::Zstd)?;
     }
 
     // Add metadata about the copy operation
     writer.set_custom_data("original_bag".to_string(), input_path.to_string())?;
-    writer.set_custom_data("copy_tool".to_string(), "rosbags-rs-copy-example".to_string())?;
-    
+    writer.set_custom_data(
+        "copy_tool".to_string(),
+        "rosbags-rs-copy-example".to_string(),
+    )?;
+
     if let Some(ref topics) = topic_filter {
-        writer.set_custom_data("filtered_topics".to_string(), 
-                             topics.iter().cloned().collect::<Vec<_>>().join(","))?;
+        writer.set_custom_data(
+            "filtered_topics".to_string(),
+            topics.iter().cloned().collect::<Vec<_>>().join(","),
+        )?;
     }
 
     writer.open()?;
@@ -174,8 +191,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         if include_topic {
-            println!("➕ Adding topic: {} ({})", topic_info.name, topic_info.message_type);
-            
+            println!(
+                "➕ Adding topic: {} ({})",
+                topic_info.name, topic_info.message_type
+            );
+
             // Add all connections for this topic
             for connection in &topic_info.connections {
                 let new_connection = writer.add_connection(
@@ -186,7 +206,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Some(connection.serialization_format.clone()),
                     Some(connection.offered_qos_profiles.clone()),
                 )?;
-                
+
                 connection_map.insert(connection.id, new_connection);
                 copied_connections += 1;
             }
@@ -202,7 +222,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for message_result in reader.messages()? {
         let message = message_result?;
-        
+
         // Check time filter
         if let Some(start) = start_time {
             if message.timestamp < start {
@@ -210,7 +230,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 continue;
             }
         }
-        
+
         if let Some(end) = end_time {
             if message.timestamp > end {
                 filtered_messages += 1;
@@ -233,7 +253,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Close bags
     writer.close()?;
-    
+
     println!("🎉 Successfully copied bag!");
     println!("📊 Copy statistics:");
     println!("   Messages copied: {}", copied_messages);
@@ -245,11 +265,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🔍 Verifying output bag...");
     let mut verify_reader = Reader::new(Path::new(output_path))?;
     verify_reader.open()?;
-    
+
     println!("✅ Output bag verification:");
-    println!("   Duration: {:.2} seconds", verify_reader.duration() as f64 / 1_000_000_000.0);
+    println!(
+        "   Duration: {:.2} seconds",
+        verify_reader.duration() as f64 / 1_000_000_000.0
+    );
     println!("   Message count: {}", verify_reader.message_count());
     println!("   Topics: {}", verify_reader.topics().len());
 
     Ok(())
-} 
+}

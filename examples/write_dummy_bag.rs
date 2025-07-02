@@ -14,14 +14,11 @@
 //! Example:
 //!   cargo run --example write_dummy_bag ./my_test_bag --compression
 
-use rosbags_rs::{
-    CompressionFormat, CompressionMode, StoragePlugin,
-    Writer,
-};
 use rosbags_rs::types::{
-    MessageDefinition, MessageDefinitionFormat, QosProfile, QosHistory, QosReliability,
-    QosDurability, QosLiveliness, QosTime,
+    MessageDefinition, MessageDefinitionFormat, QosDurability, QosHistory, QosLiveliness,
+    QosProfile, QosReliability, QosTime,
 };
+use rosbags_rs::{CompressionFormat, CompressionMode, StoragePlugin, Writer};
 use std::env;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -54,7 +51,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Add custom metadata
     writer.set_custom_data("generator".to_string(), "rosbags-rs-example".to_string())?;
-    writer.set_custom_data("description".to_string(), "Dummy bag with all supported message types".to_string())?;
+    writer.set_custom_data(
+        "description".to_string(),
+        "Dummy bag with all supported message types".to_string(),
+    )?;
 
     // Open the writer
     writer.open()?;
@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Add all connections
     for msg_info in &message_types {
         println!("  Adding: {} -> {}", msg_info.topic, msg_info.message_type);
-        
+
         match writer.add_connection(
             msg_info.topic.clone(),
             msg_info.message_type.clone(),
@@ -89,14 +89,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Generate and write messages
     println!("📨 Writing sample messages...");
-    let start_time = SystemTime::now()
-        .duration_since(UNIX_EPOCH)?
-        .as_nanos() as u64;
+    let start_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos() as u64;
 
     for (i, (connection, description)) in connections.iter().enumerate() {
         let timestamp = start_time + (i as u64 * 100_000_000); // 100ms apart
         let message_data = create_sample_message_data(&connection.message_type);
-        
+
         match writer.write(connection, timestamp, &message_data) {
             Ok(()) => println!("  ✓ {}: {}", connection.topic, description),
             Err(e) => eprintln!("  ✗ Failed to write {}: {}", connection.topic, e),
@@ -106,9 +104,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Close the writer
     writer.close()?;
 
-    println!("🎉 Successfully created dummy bag with {} topics!", connections.len());
+    println!(
+        "🎉 Successfully created dummy bag with {} topics!",
+        connections.len()
+    );
     println!("📁 Bag location: {}", output_path);
-    
+
     // Print some stats
     if std::fs::read_to_string(format!("{}/metadata.yaml", output_path)).is_ok() {
         println!("\n📊 Bag Information:");
@@ -152,7 +153,6 @@ fn get_all_message_types() -> Vec<MessageTypeInfo> {
             topic: "/demo/header".to_string(),
             description: "Message header with timestamp and frame".to_string(),
         },
-
         // Geometry messages
         MessageTypeInfo {
             message_type: "geometry_msgs/msg/Point".to_string(),
@@ -194,7 +194,6 @@ fn get_all_message_types() -> Vec<MessageTypeInfo> {
             topic: "/cmd_vel".to_string(),
             description: "Linear and angular velocity commands".to_string(),
         },
-
         // Sensor messages
         MessageTypeInfo {
             message_type: "sensor_msgs/msg/Image".to_string(),
@@ -241,7 +240,6 @@ fn get_all_message_types() -> Vec<MessageTypeInfo> {
             topic: "/sensors/temperature".to_string(),
             description: "Temperature measurement".to_string(),
         },
-
         // Navigation messages
         MessageTypeInfo {
             message_type: "nav_msgs/msg/Odometry".to_string(),
@@ -258,7 +256,6 @@ fn get_all_message_types() -> Vec<MessageTypeInfo> {
             topic: "/path".to_string(),
             description: "Navigation path as sequence of poses".to_string(),
         },
-
         // Built-in interfaces
         MessageTypeInfo {
             message_type: "builtin_interfaces/msg/Time".to_string(),
@@ -270,14 +267,12 @@ fn get_all_message_types() -> Vec<MessageTypeInfo> {
             topic: "/duration".to_string(),
             description: "Duration representation".to_string(),
         },
-
         // TF2 messages
         MessageTypeInfo {
             message_type: "tf2_msgs/msg/TFMessage".to_string(),
             topic: "/tf_static".to_string(),
             description: "Static coordinate transformations".to_string(),
         },
-
         // Diagnostic messages
         MessageTypeInfo {
             message_type: "diagnostic_msgs/msg/DiagnosticArray".to_string(),
@@ -336,12 +331,8 @@ fn create_sample_message_data(message_type: &str) -> Vec<u8> {
             }
             data
         }
-        "std_msgs/msg/Int32" => {
-            42i32.to_le_bytes().to_vec()
-        }
-        "std_msgs/msg/Float64" => {
-            3.14159f64.to_le_bytes().to_vec()
-        }
+        "std_msgs/msg/Int32" => 42i32.to_le_bytes().to_vec(),
+        "std_msgs/msg/Float64" => 3.14159f64.to_le_bytes().to_vec(),
         "std_msgs/msg/Bool" => {
             vec![1u8] // true
         }
@@ -370,7 +361,7 @@ fn create_sample_message_data(message_type: &str) -> Vec<u8> {
         "sensor_msgs/msg/Imu" => {
             // Simplified IMU message (header + orientation + angular_velocity + linear_acceleration)
             let mut data = Vec::new();
-            
+
             // Header (simplified)
             data.extend_from_slice(&0u32.to_le_bytes()); // stamp.sec
             data.extend_from_slice(&0u32.to_le_bytes()); // stamp.nanosec
@@ -380,13 +371,13 @@ fn create_sample_message_data(message_type: &str) -> Vec<u8> {
             while data.len() % 4 != 0 {
                 data.push(0);
             }
-            
+
             // Orientation quaternion
             data.extend_from_slice(&0.0f64.to_le_bytes()); // x
             data.extend_from_slice(&0.0f64.to_le_bytes()); // y
             data.extend_from_slice(&0.0f64.to_le_bytes()); // z
             data.extend_from_slice(&1.0f64.to_le_bytes()); // w
-            
+
             // Add more IMU fields...
             data
         }
@@ -395,4 +386,4 @@ fn create_sample_message_data(message_type: &str) -> Vec<u8> {
             vec![0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]
         }
     }
-} 
+}
