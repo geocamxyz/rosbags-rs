@@ -6,7 +6,10 @@
 //! - Topic details with message counts
 //! - Human-readable timestamps
 //!
-//! Usage: cargo run --example bag_info <bag_path>
+//! This version is optimized for speed by reading only the metadata.yaml file
+//! without opening the storage files, making it much faster for large bags.
+//!
+//! Usage: cargo run --bin bag_info <bag_path>
 
 use chrono::TimeZone;
 use rosbags_rs::{Reader, ReaderError};
@@ -24,66 +27,43 @@ fn main() -> Result<(), ReaderError> {
 
     let bag_path = Path::new(&args[1]);
 
-    // Create and open the reader
-    let mut reader = Reader::new(bag_path)?;
-    reader.open()?;
+    // Create reader (this loads metadata.yaml but doesn't open storage files)
+    let reader = Reader::new(bag_path)?;
+    
+    // Get metadata for fast access to all info
+    let metadata = reader.metadata().unwrap();
+    let info = metadata.info();
 
     // Calculate storage file information
-    let storage_files = get_storage_files(bag_path)?;
-    let total_size = calculate_total_size(bag_path, &storage_files)?;
-    let storage_id = detect_storage_id(&storage_files);
+    let storage_files = &info.relative_file_paths;
+    let total_size = calculate_total_size(bag_path, storage_files)?;
+    let storage_id = get_storage_id(info);
 
-    // Get timing information
+    // Get timing information directly from metadata
     let duration_ns = reader.duration();
     let duration_s = duration_ns as f64 / 1_000_000_000.0;
     let start_time_ns = reader.start_time();
     let end_time_ns = reader.end_time();
+    let message_count = reader.message_count();
 
     // Print information in reference format
-    println!("Files:             {}", format_file_list(&storage_files));
+    println!("Files:             {}", format_file_list(storage_files));
     println!("Bag size:          {}", format_size(total_size));
     println!("Storage id:        {}", storage_id);
     println!("Duration:          {:.9}s", duration_s);
     println!("Start:             {}", format_timestamp(start_time_ns));
     println!("End:               {}", format_timestamp(end_time_ns));
-    println!("Messages:          {}", reader.message_count());
+    println!("Messages:          {}", message_count);
 
-    // Print topic information
-    let topics = reader.topics();
-    if !topics.is_empty() {
-        println!("Topic information: {}", format_first_topic(&topics[0]));
-        for topic in topics.iter().skip(1) {
-            println!("                   {}", format_topic(topic));
+    // Print topic information directly from metadata
+    if !info.topics_with_message_count.is_empty() {
+        println!("Topic information: {}", format_first_topic_from_metadata(&info.topics_with_message_count[0]));
+        for topic in info.topics_with_message_count.iter().skip(1) {
+            println!("                   {}", format_topic_from_metadata(topic));
         }
     }
-
-    // Close the reader
-    reader.close()?;
 
     Ok(())
-}
-
-/// Get list of storage files in the bag directory
-fn get_storage_files(bag_path: &Path) -> Result<Vec<String>, ReaderError> {
-    let mut files = Vec::new();
-
-    if let Ok(entries) = std::fs::read_dir(bag_path) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if let Some(extension) = path.extension() {
-                if extension == "db3" || extension == "mcap" {
-                    if let Some(filename) = path.file_name() {
-                        if let Some(filename_str) = filename.to_str() {
-                            files.push(filename_str.to_string());
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    files.sort();
-    Ok(files)
 }
 
 /// Calculate total size of storage files
@@ -100,16 +80,21 @@ fn calculate_total_size(bag_path: &Path, files: &[String]) -> Result<u64, Reader
     Ok(total_size)
 }
 
-/// Detect storage identifier from file extensions
-fn detect_storage_id(files: &[String]) -> String {
-    for file in files {
-        if file.ends_with(".db3") {
-            return "sqlite3".to_string();
-        } else if file.ends_with(".mcap") {
-            return "mcap".to_string();
+/// Get storage identifier from metadata
+fn get_storage_id(info: &rosbags_rs::metadata::BagFileInformation) -> String {
+    if !info.storage_identifier.is_empty() {
+        info.storage_identifier.clone()
+    } else {
+        // Auto-detect from file extensions
+        for file in &info.relative_file_paths {
+            if file.ends_with(".db3") {
+                return "sqlite3".to_string();
+            } else if file.ends_with(".mcap") {
+                return "mcap".to_string();
+            }
         }
+        "unknown".to_string()
     }
-    "unknown".to_string()
 }
 
 /// Format file list for display
@@ -158,18 +143,24 @@ fn format_timestamp(timestamp_ns: u64) -> String {
     }
 }
 
-/// Format first topic with "Topic:" prefix
-fn format_first_topic(topic: &rosbags_rs::types::TopicInfo) -> String {
+/// Format first topic with "Topic:" prefix from metadata
+fn format_first_topic_from_metadata(topic: &rosbags_rs::metadata::TopicWithMessageCount) -> String {
     format!(
-        "Topic: {} | Type: {} | Count: {} | Serialization Format: cdr",
-        topic.name, topic.message_type, topic.message_count
+        "Topic: {} | Type: {} | Count: {} | Serialization Format: {}",
+        topic.topic_metadata.name,
+        topic.topic_metadata.message_type,
+        topic.message_count,
+        topic.topic_metadata.serialization_format
     )
 }
 
-/// Format subsequent topics with proper alignment
-fn format_topic(topic: &rosbags_rs::types::TopicInfo) -> String {
+/// Format subsequent topics with proper alignment from metadata
+fn format_topic_from_metadata(topic: &rosbags_rs::metadata::TopicWithMessageCount) -> String {
     format!(
-        "Topic: {} | Type: {} | Count: {} | Serialization Format: cdr",
-        topic.name, topic.message_type, topic.message_count
+        "Topic: {} | Type: {} | Count: {} | Serialization Format: {}",
+        topic.topic_metadata.name,
+        topic.topic_metadata.message_type,
+        topic.message_count,
+        topic.topic_metadata.serialization_format
     )
 }
