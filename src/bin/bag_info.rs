@@ -12,7 +12,7 @@
 //! Usage: cargo run --bin bag_info <bag_path>
 
 use chrono::TimeZone;
-use rosbags_rs::{Reader, ReaderError};
+use rosbags_rs::{read_bag_metadata_fast, ReaderError};
 use std::env;
 use std::path::Path;
 
@@ -27,11 +27,8 @@ fn main() -> Result<(), ReaderError> {
 
     let bag_path = Path::new(&args[1]);
 
-    // Create reader (this loads metadata.yaml but doesn't open storage files)
-    let reader = Reader::new(bag_path)?;
-    
-    // Get metadata for fast access to all info
-    let metadata = reader.metadata().unwrap();
+    // Read metadata directly - this is very fast as it only reads metadata.yaml
+    let metadata = read_bag_metadata_fast(bag_path)?;
     let info = metadata.info();
 
     // Calculate storage file information
@@ -40,11 +37,11 @@ fn main() -> Result<(), ReaderError> {
     let storage_id = get_storage_id(info);
 
     // Get timing information directly from metadata
-    let duration_ns = reader.duration();
+    let duration_ns = metadata.duration();
     let duration_s = duration_ns as f64 / 1_000_000_000.0;
-    let start_time_ns = reader.start_time();
-    let end_time_ns = reader.end_time();
-    let message_count = reader.message_count();
+    let start_time_ns = metadata.start_time();
+    let end_time_ns = metadata.end_time();
+    let message_count = metadata.message_count();
 
     // Print information in reference format
     println!("Files:             {}", format_file_list(storage_files));

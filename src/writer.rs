@@ -9,6 +9,14 @@ use crate::types::{
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+/// Buffered message for batch writing
+#[derive(Debug, Clone)]
+struct BufferedMessage {
+    connection: Connection,
+    timestamp: u64,
+    data: Vec<u8>,
+}
+
 /// Main writer for ROS2 bag files
 pub struct Writer {
     /// Path to the bag directory
@@ -39,6 +47,14 @@ pub struct Writer {
     max_timestamp: u64,
     /// Whether the writer is currently open
     is_open: bool,
+    /// Message buffer for batch writing
+    message_buffer: Vec<BufferedMessage>,
+    /// Maximum buffer size in bytes (default: 10MB)
+    buffer_size_limit: usize,
+    /// Current buffer size in bytes
+    current_buffer_size: usize,
+    /// Batch write size threshold (number of messages to trigger flush)
+    batch_threshold: usize,
 }
 
 impl std::fmt::Debug for Writer {
@@ -58,6 +74,10 @@ impl std::fmt::Debug for Writer {
             .field("min_timestamp", &self.min_timestamp)
             .field("max_timestamp", &self.max_timestamp)
             .field("is_open", &self.is_open)
+            .field("message_buffer", &self.message_buffer)
+            .field("buffer_size_limit", &self.buffer_size_limit)
+            .field("current_buffer_size", &self.current_buffer_size)
+            .field("batch_threshold", &self.batch_threshold)
             .finish()
     }
 }
@@ -99,6 +119,10 @@ impl Writer {
             min_timestamp: u64::MAX,
             max_timestamp: 0,
             is_open: false,
+            message_buffer: Vec::new(),
+            buffer_size_limit: 10 * 1024 * 1024, // 10MB
+            current_buffer_size: 0,
+            batch_threshold: 100, // 100 messages
         })
     }
 
@@ -132,6 +156,63 @@ impl Writer {
     pub fn set_custom_data(&mut self, key: String, value: String) -> Result<()> {
         self.custom_data.insert(key, value);
         Ok(())
+    }
+
+    /// Configure message buffer settings for performance optimization
+    /// 
+    /// # Arguments
+    /// * `buffer_size_mb` - Maximum buffer size in megabytes (default: 10MB)
+    /// * `batch_threshold` - Number of messages to trigger flush (default: 100)
+    /// 
+    /// # Example
+    /// ```no_run
+    /// # use rosbags_rs::Writer;
+    /// # let mut writer = Writer::new("test", None, None).unwrap();
+    /// // Use 20MB buffer with 500 message batches for high-throughput scenarios
+    /// writer.configure_buffer(20, 500).unwrap();
+    /// ```
+    pub fn configure_buffer(&mut self, buffer_size_mb: usize, batch_threshold: usize) -> Result<()> {
+        if self.is_open {
+            return Err(BagError::BagAlreadyOpen);
+        }
+
+        self.buffer_size_limit = buffer_size_mb * 1024 * 1024;
+        self.batch_threshold = batch_threshold;
+        Ok(())
+    }
+
+    /// Flush the message buffer to storage
+    /// 
+    /// This method writes all buffered messages to storage in a batch operation.
+    /// It's automatically called when the buffer reaches its limits, but can also
+    /// be called manually for explicit control.
+    pub fn flush_buffer(&mut self) -> Result<()> {
+        if self.message_buffer.is_empty() {
+            return Ok(());
+        }
+
+        // Convert buffer to format expected by write_batch
+        let batch_messages: Vec<(Connection, u64, Vec<u8>)> = self.message_buffer
+            .iter()
+            .map(|msg| (msg.connection.clone(), msg.timestamp, msg.data.clone()))
+            .collect();
+
+        let storage = self.storage.as_mut().unwrap();
+
+        // Use batch write for better performance
+        storage.write_batch(&batch_messages)?;
+
+        // Clear the buffer
+        self.message_buffer.clear();
+        self.current_buffer_size = 0;
+
+        Ok(())
+    }
+
+    /// Check if buffer should be flushed
+    fn should_flush_buffer(&self) -> bool {
+        self.message_buffer.len() >= self.batch_threshold 
+            || self.current_buffer_size >= self.buffer_size_limit
     }
 
     /// Open the bag for writing
@@ -235,8 +316,6 @@ impl Writer {
             });
         }
 
-        let storage = self.storage.as_mut().unwrap();
-
         // Apply compression if needed
         let final_data = match self.compression_mode {
             CompressionMode::Message => {
@@ -256,13 +335,25 @@ impl Writer {
             _ => data.to_vec(),
         };
 
-        // Write to storage
-        storage.write(connection, timestamp, &final_data)?;
+        // Add message to buffer
+        let buffered_message = BufferedMessage {
+            connection: connection.clone(),
+            timestamp,
+            data: final_data.clone(),
+        };
+
+        self.current_buffer_size += final_data.len();
+        self.message_buffer.push(buffered_message);
 
         // Update statistics
         *self.message_counts.entry(connection.id).or_insert(0) += 1;
         self.min_timestamp = self.min_timestamp.min(timestamp);
         self.max_timestamp = self.max_timestamp.max(timestamp);
+
+        // Flush buffer if it's full
+        if self.should_flush_buffer() {
+            self.flush_buffer()?;
+        }
 
         Ok(())
     }
@@ -272,6 +363,9 @@ impl Writer {
         if !self.is_open {
             return Ok(());
         }
+
+        // Flush any remaining buffered messages
+        self.flush_buffer()?;
 
         // Generate metadata
         let bag_info = self.generate_metadata()?;

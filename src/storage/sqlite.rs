@@ -604,6 +604,45 @@ impl crate::storage::StorageWriter for SqliteWriter {
         Ok(())
     }
 
+    fn write_batch(&mut self, messages: &[(Connection, u64, Vec<u8>)]) -> Result<()> {
+        if !self.is_open {
+            return Err(crate::error::BagError::BagNotOpen);
+        }
+
+        if messages.is_empty() {
+            return Ok(());
+        }
+
+        // Take the connection temporarily to avoid borrowing issues
+        let mut conn = self.connection.take().unwrap();
+        
+        // Start transaction for batch insert
+        let tx = conn.transaction()?;
+
+        {
+            let mut stmt = tx.prepare(
+                "INSERT INTO messages(topic_id, timestamp, data) VALUES (?1, ?2, ?3)"
+            )?;
+
+            for (connection, timestamp, data) in messages {
+                let topic_id = self
+                    .topic_id_map
+                    .get(&connection.topic)
+                    .ok_or_else(|| crate::error::BagError::connection_not_found(&connection.topic))?;
+
+                stmt.execute((topic_id, *timestamp as i64, data))?;
+            }
+        }
+
+        // Commit the transaction
+        tx.commit()?;
+
+        // Put the connection back
+        self.connection = Some(conn);
+
+        Ok(())
+    }
+
     fn is_open(&self) -> bool {
         self.is_open
     }

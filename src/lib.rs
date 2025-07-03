@@ -26,34 +26,69 @@
 //!
 //! ## Quick Start
 //!
-//! ```rust,no_run
-//! use rosbags_rs::{Reader, ReaderError};
+//! ### Reading a bag
+//! ```no_run
+//! use rosbags_rs::Reader;
 //! use std::path::Path;
 //!
-//! fn main() -> Result<(), ReaderError> {
-//!     let bag_path = Path::new("/path/to/rosbag");
-//!     let mut reader = Reader::new(bag_path)?;
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let mut reader = Reader::new(Path::new("path/to/bag"))?;
+//! reader.open()?;
 //!
-//!     reader.open()?;
+//! println!("Bag duration: {:.2}s", reader.duration() as f64 / 1e9);
+//! println!("Topics: {}", reader.topics().len());
 //!
-//!     println!("Bag contains {} messages", reader.message_count());
-//!     println!("Duration: {:.2} seconds", reader.duration() as f64 / 1_000_000_000.0);
-//!
-//!     // List all topics
-//!     for topic in reader.topics() {
-//!         println!("Topic: {}, Type: {}, Count: {}",
-//!                  topic.name, topic.message_type, topic.message_count);
-//!     }
-//!
-//!     // Read all messages
-//!     for message_result in reader.messages()? {
-//!         let message = message_result?;
-//!         println!("Topic: {}, Timestamp: {}, Data length: {}",
-//!                  message.topic, message.timestamp, message.data.len());
-//!     }
-//!
-//!     Ok(())
+//! for message_result in reader.messages()? {
+//!     let message = message_result?;
+//!     println!("Topic: {}, Time: {}", message.connection.topic, message.timestamp);
 //! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Writing a bag with performance optimization
+//! ```no_run
+//! use rosbags_rs::{Writer, StoragePlugin};
+//! use std::path::Path;
+//! 
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let mut writer = Writer::new("output_bag", None, Some(StoragePlugin::Sqlite3))?;
+//! 
+//! // Configure high-performance buffering (20MB buffer, 500 message batches)
+//! writer.configure_buffer(20, 500)?;
+//! 
+//! writer.open()?;
+//! 
+//! let connection = writer.add_connection(
+//!     "/my_topic".to_string(),
+//!     "std_msgs/msg/String".to_string(),
+//!     None, None, None, None
+//! )?;
+//! 
+//! // Write messages - automatically batched for optimal performance
+//! for i in 0..1000 {
+//!     let timestamp = 1000000000u64 + i * 100000000; // 100ms intervals
+//!     writer.write(&connection, timestamp, b"hello")?;
+//! }
+//! 
+//! writer.close()?; // Automatically flushes remaining buffered messages
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Fast metadata reading
+//! ```no_run
+//! use rosbags_rs::read_bag_metadata_fast;
+//! use std::path::Path;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let metadata = read_bag_metadata_fast(Path::new("path/to/bag"))?;
+//! 
+//! println!("Duration: {:.2}s", metadata.duration() as f64 / 1e9);
+//! println!("Message count: {}", metadata.message_count());
+//! println!("Topics: {}", metadata.info().topics_with_message_count.len());
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Advanced Usage
@@ -167,6 +202,48 @@ pub use types::{
     CompressionFormat, CompressionMode, Connection, Message, StoragePlugin, TopicInfo,
 };
 pub use writer::Writer;
+
+/// Fast bag metadata reading without opening storage files
+/// 
+/// This function reads only the metadata.yaml file to quickly extract bag information
+/// without the overhead of opening and parsing storage files. This is ideal for
+/// getting basic bag information like duration, message count, and topic list.
+/// 
+/// # Arguments
+/// * `bag_path` - Path to the ROS2 bag directory
+/// 
+/// # Returns
+/// * `BagMetadata` containing all bag information from metadata.yaml
+/// 
+/// # Example
+/// ```no_run
+/// use rosbags_rs::read_bag_metadata_fast;
+/// use std::path::Path;
+/// 
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let metadata = read_bag_metadata_fast(Path::new("path/to/bag"))?;
+/// 
+/// println!("Duration: {:.2}s", metadata.duration() as f64 / 1e9);
+/// println!("Message count: {}", metadata.message_count());
+/// println!("Start time: {}", metadata.start_time());
+/// println!("End time: {}", metadata.end_time());
+/// 
+/// for topic in &metadata.info().topics_with_message_count {
+///     println!("Topic: {} ({}), Count: {}", 
+///         topic.topic_metadata.name,
+///         topic.topic_metadata.message_type,
+///         topic.message_count
+///     );
+/// }
+/// # Ok(())
+/// # }
+/// ```
+pub fn read_bag_metadata_fast<P: AsRef<std::path::Path>>(bag_path: P) -> Result<BagMetadata> {
+    let bag_path = bag_path.as_ref();
+    let metadata_path = bag_path.join("metadata.yaml");
+    
+    BagMetadata::from_file(metadata_path)
+}
 
 #[cfg(test)]
 mod tests {

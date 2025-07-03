@@ -27,7 +27,7 @@
 //!   # Copy with compression
 //!   cargo run --example copy_bag_filtered ./input_bag ./output_bag --compression
 
-use rosbags_rs::{CompressionFormat, CompressionMode, Reader, StoragePlugin, Writer};
+use rosbags_rs::{read_bag_metadata_fast, CompressionFormat, CompressionMode, Reader, StoragePlugin, Writer};
 use std::collections::HashSet;
 use std::env;
 use std::path::Path;
@@ -127,27 +127,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("📦 Output compression: ENABLED (zstd)");
     }
 
-    // Open the input bag
-    println!("📖 Opening input bag...");
-    let mut reader = Reader::new(Path::new(input_path))?;
-    reader.open()?;
-
+    // First, read metadata quickly to show bag information
+    println!("📖 Reading bag metadata...");
+    let metadata = read_bag_metadata_fast(Path::new(input_path))?;
+    
     println!("📊 Input bag information:");
     println!(
         "   Duration: {:.2} seconds",
-        reader.duration() as f64 / 1_000_000_000.0
+        metadata.duration() as f64 / 1_000_000_000.0
     );
-    println!("   Message count: {}", reader.message_count());
-    println!("   Topics: {}", reader.topics().len());
+    println!("   Message count: {}", metadata.message_count());
+    println!("   Topics: {}", metadata.info().topics_with_message_count.len());
 
-    // Show available topics
+    // Show available topics from metadata
     println!("\n📋 Available topics:");
-    for topic in reader.topics() {
+    for topic in &metadata.info().topics_with_message_count {
         println!(
             "   {} ({}) - {} messages",
-            topic.name, topic.message_type, topic.message_count
+            topic.topic_metadata.name, 
+            topic.topic_metadata.message_type, 
+            topic.message_count
         );
     }
+
+    // Now open the input bag for actual reading
+    println!("\n📖 Opening input bag for reading...");
+    let mut reader = Reader::new(Path::new(input_path))?;
+    reader.open()?;
 
     // Create output writer
     println!("\n✍️  Creating output bag...");
@@ -162,6 +168,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if enable_compression {
         writer.set_compression(CompressionMode::Message, CompressionFormat::Zstd)?;
     }
+
+    // Configure buffer for optimal performance based on estimated message count
+    let estimated_messages = metadata.message_count();
+    let (buffer_size_mb, batch_threshold) = if estimated_messages > 100_000 {
+        // Large bags: Use bigger buffer and batch size
+        (50, 1000)
+    } else if estimated_messages > 10_000 {
+        // Medium bags: Use moderate buffer
+        (20, 500)
+    } else {
+        // Small bags: Use smaller buffer for responsive feedback
+        (10, 100)
+    };
+    
+    writer.configure_buffer(buffer_size_mb, batch_threshold)?;
+    println!("📊 Optimized buffer: {}MB, {} message batches", buffer_size_mb, batch_threshold);
 
     // Add metadata about the copy operation
     writer.set_custom_data("original_bag".to_string(), input_path.to_string())?;
@@ -243,8 +265,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             writer.write(output_connection, message.timestamp, &message.data)?;
             copied_messages += 1;
 
-            if copied_messages % 1000 == 0 {
-                println!("  Copied {} messages...", copied_messages);
+            if copied_messages % batch_threshold == 0 {
+                println!("  Copied {} messages (batch flushed)...", copied_messages);
             }
         } else {
             filtered_messages += 1;

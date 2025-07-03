@@ -37,28 +37,36 @@ pub trait StorageReader {
     fn as_any(&self) -> &dyn std::any::Any;
 }
 
-/// Trait for storage backend implementations (writing)
-pub trait StorageWriter {
-    /// Open the storage files for writing
+/// Storage writer trait for writing bag data
+pub trait StorageWriter: std::any::Any {
+    /// Open the storage for writing
     fn open(&mut self) -> Result<()>;
 
-    /// Close the storage files and write any remaining data
+    /// Close the storage and write any final metadata
     fn close(&mut self, version: u32, metadata: &str) -> Result<()>;
 
-    /// Add a message type definition to the storage
+    /// Add a message type definition
     fn add_msgtype(&mut self, connection: &Connection) -> Result<()>;
 
     /// Add a connection (topic) to the storage
-    fn add_connection(&mut self, connection: &Connection, offered_qos_profiles: &str)
-        -> Result<()>;
+    fn add_connection(&mut self, connection: &Connection, offered_qos_profiles: &str) -> Result<()>;
 
-    /// Write a message to the storage
+    /// Write a single message to the storage
     fn write(&mut self, connection: &Connection, timestamp: u64, data: &[u8]) -> Result<()>;
 
-    /// Check if the storage is currently open
+    /// Write multiple messages in a batch for better performance
+    /// Default implementation falls back to individual writes
+    fn write_batch(&mut self, messages: &[(Connection, u64, Vec<u8>)]) -> Result<()> {
+        for (connection, timestamp, data) in messages {
+            self.write(connection, *timestamp, data)?;
+        }
+        Ok(())
+    }
+
+    /// Check if the storage is open
     fn is_open(&self) -> bool;
 
-    /// Get a reference to the concrete type for downcasting
+    /// Get type-erased reference for downcasting
     fn as_any(&self) -> &dyn std::any::Any;
 }
 
