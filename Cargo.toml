@@ -40,11 +40,13 @@ tokio = { version = "1.45", features = ["rt", "fs"], optional = true }
 mcap = { version = "0.8", optional = true }
 memmap2 = { version = "0.9", optional = true }
 
+# Binary dependencies
+hex = "0.4"
+image = "0.24"
+
 [dev-dependencies]
 tempfile = "3.20"
 pretty_assertions = "1.4"
-hex = "0.4"
-image = "0.24"
 
 [features]
 default = ["sqlite", "mcap", "compression"]
@@ -53,22 +55,4 @@ mcap = ["dep:mcap", "dep:memmap2"]
 compression = ["dep:zstd"]
 async = ["tokio"]
 
-[[example]]
-name = "bag_info"
-path = "examples/bag_info.rs"
 
-[[example]]
-name = "list_topics"
-path = "examples/list_topics.rs"
-
-[[example]]
-name = "extract_topic"
-path = "examples/extract_topic.rs"
-
-[[example]]
-name = "extract_topic_data"
-path = "examples/extract_topic_data.rs"
-
-[[example]]
-name = "read_test_bags"
-path = "examples/read_test_bags.rs"
