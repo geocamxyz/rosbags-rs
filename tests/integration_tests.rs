@@ -187,9 +187,9 @@ fn validate_messages(
     // Read all messages and group by topic
     for message_result in reader
         .messages()
-        .map_err(|e| format!("Failed to get messages: {}", e))?
+        .map_err(|e| format!("Failed to get messages: {e}"))?
     {
-        let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+        let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
         message_map
             .entry(message.topic.clone())
             .or_insert_with(Vec::new)
@@ -320,10 +320,7 @@ fn test_mcap_message_validation() {
     }
 
     assert!(message_count > 0, "Should have read some messages");
-    println!(
-        "✅ MCAP message validation completed successfully - {} messages",
-        message_count
-    );
+    println!("✅ MCAP message validation completed successfully - {message_count} messages");
 }
 
 /// Test message filtering by topic
@@ -430,8 +427,7 @@ fn test_bag_format_consistency() {
     for (topic, msgtype) in &sqlite_topics {
         assert!(
             mcap_topics.contains_key(topic),
-            "Topic '{}' missing from MCAP bag",
-            topic
+            "Topic '{topic}' missing from MCAP bag"
         );
         assert_eq!(
             mcap_topics.get(topic).unwrap(),
@@ -473,8 +469,7 @@ fn test_specific_message_types() {
         assert_eq!(
             matching_connections.len(),
             1,
-            "Expected exactly one connection for message type '{}'",
-            msgtype
+            "Expected exactly one connection for message type '{msgtype}'"
         );
 
         // Read messages for this message type
@@ -488,26 +483,20 @@ fn test_specific_message_types() {
             // Verify message has data
             assert!(
                 !message.data.is_empty(),
-                "Message data is empty for type '{}'",
-                msgtype
+                "Message data is empty for type '{msgtype}'"
             );
 
             // Verify timestamp is reasonable (not zero, not too far in future)
             assert!(
                 message.timestamp > 0,
-                "Invalid timestamp for message type '{}'",
-                msgtype
+                "Invalid timestamp for message type '{msgtype}'"
             );
 
             message_count += 1;
         }
 
         // Should have exactly 2 messages per topic
-        assert_eq!(
-            message_count, 2,
-            "Expected 2 messages for type '{}'",
-            msgtype
-        );
+        assert_eq!(message_count, 2, "Expected 2 messages for type '{msgtype}'");
     }
 }
 
@@ -544,8 +533,7 @@ fn test_comprehensive_message_type_coverage() {
         let actual_count = category_counts.get(category).unwrap_or(&0);
         assert_eq!(
             *actual_count, expected_count,
-            "Expected {} message types in category '{}', found {}",
-            expected_count, category, actual_count
+            "Expected {expected_count} message types in category '{category}', found {actual_count}"
         );
     }
 
@@ -553,8 +541,7 @@ fn test_comprehensive_message_type_coverage() {
     let total_types: usize = category_counts.values().sum();
     assert_eq!(
         total_types, 94,
-        "Expected 94 total message types, found {}",
-        total_types
+        "Expected 94 total message types, found {total_types}"
     );
 }
 
@@ -592,8 +579,7 @@ fn test_all_messages_readable() {
     // Verify we read all expected messages
     assert_eq!(
         message_count, 188,
-        "Expected 188 messages, read {}",
-        message_count
+        "Expected 188 messages, read {message_count}"
     );
 
     // Verify we saw all expected topics
@@ -663,7 +649,7 @@ fn test_basic_message_parsing() {
 
                 // Validate CDR header
                 validate_cdr_header(&message.data)
-                    .unwrap_or_else(|_| panic!("Invalid CDR header in {}", msg_type));
+                    .unwrap_or_else(|_| panic!("Invalid CDR header in {msg_type}"));
             }
         }
     }
@@ -689,9 +675,9 @@ fn validate_std_msgs_string(reader: &mut Reader) -> Result<(), String> {
 
     for message_result in reader
         .messages_filtered(Some(&string_connections), None, None)
-        .map_err(|e| format!("Failed to get messages: {}", e))?
+        .map_err(|e| format!("Failed to get messages: {e}"))?
     {
-        let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+        let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
         // Parse CDR data for std_msgs/String
         if message.data.len() < 8 {
@@ -727,13 +713,12 @@ fn validate_std_msgs_string(reader: &mut Reader) -> Result<(), String> {
         };
 
         let parsed_string = String::from_utf8(string_data.to_vec())
-            .map_err(|e| format!("Invalid UTF-8 in string: {}", e))?;
+            .map_err(|e| format!("Invalid UTF-8 in string: {e}"))?;
 
         // Validate string content - should be "Hello, ROS2!" based on test bag generation
         if parsed_string != "Hello, ROS2!" {
             return Err(format!(
-                "Unexpected string value: expected 'Hello, ROS2!', got '{}'",
-                parsed_string
+                "Unexpected string value: expected 'Hello, ROS2!', got '{parsed_string}'"
             ));
         }
     }
@@ -757,9 +742,9 @@ fn validate_std_msgs_int32(reader: &mut Reader) -> Result<(), String> {
 
     for message_result in reader
         .messages_filtered(Some(&int32_connections), None, None)
-        .map_err(|e| format!("Failed to get messages: {}", e))?
+        .map_err(|e| format!("Failed to get messages: {e}"))?
     {
-        let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+        let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
         // Parse CDR data for std_msgs/Int32
         if message.data.len() < 8 {
@@ -779,8 +764,7 @@ fn validate_std_msgs_int32(reader: &mut Reader) -> Result<(), String> {
         // Validate int32 content - should be -100000 based on test bag generation
         if int_value != -100000 {
             return Err(format!(
-                "Unexpected int32 value: expected -100000, got {}",
-                int_value
+                "Unexpected int32 value: expected -100000, got {int_value}"
             ));
         }
     }
@@ -804,9 +788,9 @@ fn validate_std_msgs_float64(reader: &mut Reader) -> Result<(), String> {
 
     for message_result in reader
         .messages_filtered(Some(&float64_connections), None, None)
-        .map_err(|e| format!("Failed to get messages: {}", e))?
+        .map_err(|e| format!("Failed to get messages: {e}"))?
     {
-        let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+        let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
         // Parse CDR data for std_msgs/Float64
         if message.data.len() < 12 {
@@ -830,8 +814,7 @@ fn validate_std_msgs_float64(reader: &mut Reader) -> Result<(), String> {
         let expected = std::f64::consts::E;
         if (float_value - expected).abs() > 1e-5 {
             return Err(format!(
-                "Unexpected float64 value: expected {}, got {}",
-                expected, float_value
+                "Unexpected float64 value: expected {expected}, got {float_value}"
             ));
         }
     }
@@ -855,9 +838,9 @@ fn validate_geometry_msgs_point(reader: &mut Reader) -> Result<(), String> {
 
     for message_result in reader
         .messages_filtered(Some(&point_connections), None, None)
-        .map_err(|e| format!("Failed to get messages: {}", e))?
+        .map_err(|e| format!("Failed to get messages: {e}"))?
     {
-        let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+        let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
         // Parse CDR data for geometry_msgs/Point (3 x f64)
         if message.data.len() < 28 {
@@ -889,20 +872,17 @@ fn validate_geometry_msgs_point(reader: &mut Reader) -> Result<(), String> {
 
         if (x - expected_x).abs() > 1e-10 {
             return Err(format!(
-                "Unexpected Point.x value: expected {}, got {}",
-                expected_x, x
+                "Unexpected Point.x value: expected {expected_x}, got {x}"
             ));
         }
         if (y - expected_y).abs() > 1e-10 {
             return Err(format!(
-                "Unexpected Point.y value: expected {}, got {}",
-                expected_y, y
+                "Unexpected Point.y value: expected {expected_y}, got {y}"
             ));
         }
         if (z - expected_z).abs() > 1e-10 {
             return Err(format!(
-                "Unexpected Point.z value: expected {}, got {}",
-                expected_z, z
+                "Unexpected Point.z value: expected {expected_z}, got {z}"
             ));
         }
     }
@@ -926,9 +906,9 @@ fn validate_geometry_msgs_vector3(reader: &mut Reader) -> Result<(), String> {
 
     for message_result in reader
         .messages_filtered(Some(&vector3_connections), None, None)
-        .map_err(|e| format!("Failed to get messages: {}", e))?
+        .map_err(|e| format!("Failed to get messages: {e}"))?
     {
-        let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+        let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
         // Parse CDR data for geometry_msgs/Vector3 (3 x f64)
         if message.data.len() < 28 {
@@ -960,20 +940,17 @@ fn validate_geometry_msgs_vector3(reader: &mut Reader) -> Result<(), String> {
 
         if (x - expected_x).abs() > 1e-10 {
             return Err(format!(
-                "Unexpected Vector3.x value: expected {}, got {}",
-                expected_x, x
+                "Unexpected Vector3.x value: expected {expected_x}, got {x}"
             ));
         }
         if (y - expected_y).abs() > 1e-10 {
             return Err(format!(
-                "Unexpected Vector3.y value: expected {}, got {}",
-                expected_y, y
+                "Unexpected Vector3.y value: expected {expected_y}, got {y}"
             ));
         }
         if (z - expected_z).abs() > 1e-10 {
             return Err(format!(
-                "Unexpected Vector3.z value: expected {}, got {}",
-                expected_z, z
+                "Unexpected Vector3.z value: expected {expected_z}, got {z}"
             ));
         }
     }
@@ -1011,9 +988,9 @@ fn validate_sensor_msgs_imu(reader: &mut Reader) -> Result<(), String> {
 
     for message_result in reader
         .messages_filtered(Some(&imu_connections), None, None)
-        .map_err(|e| format!("Failed to get messages: {}", e))?
+        .map_err(|e| format!("Failed to get messages: {e}"))?
     {
-        let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+        let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
         // Parse CDR data for sensor_msgs/Imu
         if message.data.len() < 100 {
@@ -1029,8 +1006,7 @@ fn validate_sensor_msgs_imu(reader: &mut Reader) -> Result<(), String> {
         // Validate frame_id (should be "test_frame" based on test bag)
         if frame_id != "test_frame" {
             return Err(format!(
-                "Unexpected frame_id: expected 'test_frame', got '{}'",
-                frame_id
+                "Unexpected frame_id: expected 'test_frame', got '{frame_id}'"
             ));
         }
 
@@ -1062,14 +1038,13 @@ fn validate_sensor_msgs_imu(reader: &mut Reader) -> Result<(), String> {
         // Validate quaternion is normalized (approximately)
         let norm = (qx * qx + qy * qy + qz * qz + qw * qw).sqrt();
         if (norm - 1.0).abs() > 1e-6 {
-            return Err(format!("Quaternion not normalized: norm = {}", norm));
+            return Err(format!("Quaternion not normalized: norm = {norm}"));
         }
 
         // Validate quaternion values are reasonable (not NaN or infinity)
         if !qx.is_finite() || !qy.is_finite() || !qz.is_finite() || !qw.is_finite() {
             return Err(format!(
-                "Invalid quaternion values: ({}, {}, {}, {})",
-                qx, qy, qz, qw
+                "Invalid quaternion values: ({qx}, {qy}, {qz}, {qw})"
             ));
         }
     }
@@ -1093,9 +1068,9 @@ fn validate_sensor_msgs_image(reader: &mut Reader) -> Result<(), String> {
 
     for message_result in reader
         .messages_filtered(Some(&image_connections), None, None)
-        .map_err(|e| format!("Failed to get messages: {}", e))?
+        .map_err(|e| format!("Failed to get messages: {e}"))?
     {
-        let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+        let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
         // Parse CDR data for sensor_msgs/Image
         if message.data.len() < 50 {
@@ -1120,7 +1095,7 @@ fn validate_sensor_msgs_image(reader: &mut Reader) -> Result<(), String> {
 
         // Validate dimensions are reasonable
         if height == 0 || width == 0 || height > 10000 || width > 10000 {
-            return Err(format!("Invalid image dimensions: {}x{}", width, height));
+            return Err(format!("Invalid image dimensions: {width}x{height}"));
         }
 
         // Parse encoding string
@@ -1143,12 +1118,12 @@ fn validate_sensor_msgs_image(reader: &mut Reader) -> Result<(), String> {
         };
 
         let encoding = String::from_utf8(encoding_data.to_vec())
-            .map_err(|e| format!("Invalid UTF-8 in encoding: {}", e))?;
+            .map_err(|e| format!("Invalid UTF-8 in encoding: {e}"))?;
 
         // Validate encoding is a known format
         let valid_encodings = ["rgb8", "bgr8", "mono8", "mono16", "rgba8", "bgra8"];
         if !valid_encodings.contains(&encoding.as_str()) {
-            return Err(format!("Unknown image encoding: '{}'", encoding));
+            return Err(format!("Unknown image encoding: '{encoding}'"));
         }
     }
 
@@ -1171,9 +1146,9 @@ fn validate_sensor_msgs_point_cloud2(reader: &mut Reader) -> Result<(), String> 
 
     for message_result in reader
         .messages_filtered(Some(&pc2_connections), None, None)
-        .map_err(|e| format!("Failed to get messages: {}", e))?
+        .map_err(|e| format!("Failed to get messages: {e}"))?
     {
-        let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+        let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
         // Parse CDR data for sensor_msgs/PointCloud2
         if message.data.len() < 100 {
@@ -1199,8 +1174,7 @@ fn validate_sensor_msgs_point_cloud2(reader: &mut Reader) -> Result<(), String> 
         // Validate dimensions are reasonable
         if height > 100000 || width > 100000 {
             return Err(format!(
-                "Unreasonable point cloud dimensions: {}x{}",
-                width, height
+                "Unreasonable point cloud dimensions: {width}x{height}"
             ));
         }
 
@@ -1213,7 +1187,7 @@ fn validate_sensor_msgs_point_cloud2(reader: &mut Reader) -> Result<(), String> 
 
         // Validate fields count is reasonable
         if fields_len > 100 {
-            return Err(format!("Unreasonable number of fields: {}", fields_len));
+            return Err(format!("Unreasonable number of fields: {fields_len}"));
         }
     }
 
@@ -1246,7 +1220,7 @@ fn parse_header(data: &[u8]) -> Result<(usize, String), String> {
     };
 
     let frame_id = String::from_utf8(frame_id_data.to_vec())
-        .map_err(|e| format!("Invalid UTF-8 in frame_id: {}", e))?;
+        .map_err(|e| format!("Invalid UTF-8 in frame_id: {e}"))?;
 
     // Calculate total header size with alignment
     let header_size = 12 + frame_id_len;
@@ -1295,13 +1269,13 @@ fn test_float_precision_edge_cases(reader: &mut Reader) -> Result<(), String> {
 
         for message_result in reader
             .messages_filtered(Some(&type_connections), None, None)
-            .map_err(|e| format!("Failed to get messages: {}", e))?
+            .map_err(|e| format!("Failed to get messages: {e}"))?
         {
-            let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+            let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
             // Check for minimum data size
             if message.data.len() < 8 {
-                return Err(format!("Message data too short for {}", msg_type));
+                return Err(format!("Message data too short for {msg_type}"));
             }
 
             // Parse and validate that we don't have NaN or infinity values where they shouldn't be
@@ -1311,7 +1285,7 @@ fn test_float_precision_edge_cases(reader: &mut Reader) -> Result<(), String> {
             if msg_type.contains("Float32") && data.len() >= 4 {
                 let value = f32::from_le_bytes([data[0], data[1], data[2], data[3]]);
                 if !value.is_finite() {
-                    return Err(format!("Invalid Float32 value in {}: {}", msg_type, value));
+                    return Err(format!("Invalid Float32 value in {msg_type}: {value}"));
                 }
             } else if msg_type.contains("Float64") && data.len() >= 8 {
                 // Align to 8-byte boundary
@@ -1329,7 +1303,7 @@ fn test_float_precision_edge_cases(reader: &mut Reader) -> Result<(), String> {
                         aligned_data[7],
                     ]);
                     if !value.is_finite() {
-                        return Err(format!("Invalid Float64 value in {}: {}", msg_type, value));
+                        return Err(format!("Invalid Float64 value in {msg_type}: {value}"));
                     }
                 }
             }
@@ -1365,9 +1339,9 @@ fn test_large_array_handling(reader: &mut Reader) -> Result<(), String> {
 
         for message_result in reader
             .messages_filtered(Some(&type_connections), None, None)
-            .map_err(|e| format!("Failed to get messages: {}", e))?
+            .map_err(|e| format!("Failed to get messages: {e}"))?
         {
-            let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+            let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
             // Validate message size is reasonable
             if message.data.len() > 100_000_000 {
@@ -1403,8 +1377,7 @@ fn test_large_array_handling(reader: &mut Reader) -> Result<(), String> {
                     // Only flag values that are clearly impossible (like max u32)
                     if potential_array_len == 0xFFFFFFFF {
                         return Err(format!(
-                            "Invalid array length marker in {}: {}",
-                            msg_type, potential_array_len
+                            "Invalid array length marker in {msg_type}: {potential_array_len}"
                         ));
                     }
                     // Note: We don't validate array lengths here as they could be float data
@@ -1446,16 +1419,13 @@ fn test_nested_message_structures(reader: &mut Reader) -> Result<(), String> {
 
         for message_result in reader
             .messages_filtered(Some(&type_connections), None, None)
-            .map_err(|e| format!("Failed to get messages: {}", e))?
+            .map_err(|e| format!("Failed to get messages: {e}"))?
         {
-            let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+            let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
             // Validate minimum size for nested messages
             if message.data.len() < 20 {
-                return Err(format!(
-                    "Message data too short for nested type {}",
-                    msg_type
-                ));
+                return Err(format!("Message data too short for nested type {msg_type}"));
             }
 
             // Parse header if present
@@ -1470,16 +1440,16 @@ fn test_nested_message_structures(reader: &mut Reader) -> Result<(), String> {
                     Ok((header_size, frame_id)) => {
                         // Validate frame_id is not empty and is valid UTF-8
                         if frame_id.is_empty() {
-                            return Err(format!("Empty frame_id in {}", msg_type));
+                            return Err(format!("Empty frame_id in {msg_type}"));
                         }
 
                         // Validate we have data after the header
                         if data.len() <= header_size {
-                            return Err(format!("No data after header in {}", msg_type));
+                            return Err(format!("No data after header in {msg_type}"));
                         }
                     }
                     Err(e) => {
-                        return Err(format!("Failed to parse header in {}: {}", msg_type, e));
+                        return Err(format!("Failed to parse header in {msg_type}: {e}"));
                     }
                 }
             }
@@ -1514,9 +1484,9 @@ fn test_string_encoding_edge_cases(reader: &mut Reader) -> Result<(), String> {
 
         for message_result in reader
             .messages_filtered(Some(&type_connections), None, None)
-            .map_err(|e| format!("Failed to get messages: {}", e))?
+            .map_err(|e| format!("Failed to get messages: {e}"))?
         {
-            let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+            let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
             let data = &message.data[4..]; // Skip CDR header
 
@@ -1529,7 +1499,7 @@ fn test_string_encoding_edge_cases(reader: &mut Reader) -> Result<(), String> {
                 let string_len = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
 
                 if string_len > 1_000_000 {
-                    return Err(format!("Unreasonably long string: {} bytes", string_len));
+                    return Err(format!("Unreasonably long string: {string_len} bytes"));
                 }
 
                 if data.len() < 4 + string_len {
@@ -1545,7 +1515,7 @@ fn test_string_encoding_edge_cases(reader: &mut Reader) -> Result<(), String> {
 
                 // Validate UTF-8 encoding
                 String::from_utf8(string_data.to_vec())
-                    .map_err(|e| format!("Invalid UTF-8 in string: {}", e))?;
+                    .map_err(|e| format!("Invalid UTF-8 in string: {e}"))?;
             }
 
             // For messages with headers, validate frame_id
@@ -1554,7 +1524,7 @@ fn test_string_encoding_edge_cases(reader: &mut Reader) -> Result<(), String> {
                     Ok((_header_size, frame_id)) => {
                         // Validate frame_id contains only valid characters
                         if frame_id.contains('\0') {
-                            return Err(format!("Null character in frame_id: '{}'", frame_id));
+                            return Err(format!("Null character in frame_id: '{frame_id}'"));
                         }
 
                         // Validate frame_id is reasonable length
@@ -1566,7 +1536,7 @@ fn test_string_encoding_edge_cases(reader: &mut Reader) -> Result<(), String> {
                         }
                     }
                     Err(e) => {
-                        return Err(format!("Failed to parse header: {}", e));
+                        return Err(format!("Failed to parse header: {e}"));
                     }
                 }
             }
@@ -1617,9 +1587,9 @@ fn test_geometry_msgs_type_safety(reader: &mut Reader) -> Result<(), String> {
 
         for message_result in reader
             .messages_filtered(Some(&type_connections), None, None)
-            .map_err(|e| format!("Failed to get messages: {}", e))?
+            .map_err(|e| format!("Failed to get messages: {e}"))?
         {
-            let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+            let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
             // Validate minimum message size (CDR header + payload)
             let expected_min_size = 4 + min_payload_size; // CDR header + payload
@@ -1664,7 +1634,7 @@ fn test_geometry_msgs_type_safety(reader: &mut Reader) -> Result<(), String> {
 
             // We should find at least some valid float values
             if valid_floats == 0 {
-                return Err(format!("No valid float values found in {}", msg_type));
+                return Err(format!("No valid float values found in {msg_type}"));
             }
         }
     }
@@ -1705,9 +1675,9 @@ fn test_std_msgs_type_safety(reader: &mut Reader) -> Result<(), String> {
 
         for message_result in reader
             .messages_filtered(Some(&type_connections), None, None)
-            .map_err(|e| format!("Failed to get messages: {}", e))?
+            .map_err(|e| format!("Failed to get messages: {e}"))?
         {
-            let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+            let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
             // Validate CDR header
             validate_cdr_header(&message.data)?;
@@ -1742,7 +1712,7 @@ fn test_std_msgs_type_safety(reader: &mut Reader) -> Result<(), String> {
                 "std_msgs/msg/Bool" => {
                     let val = aligned_data[0];
                     if val != 0 && val != 1 {
-                        return Err(format!("Invalid bool value: {}", val));
+                        return Err(format!("Invalid bool value: {val}"));
                     }
                 }
                 "std_msgs/msg/Float32" => {
@@ -1753,7 +1723,7 @@ fn test_std_msgs_type_safety(reader: &mut Reader) -> Result<(), String> {
                         aligned_data[3],
                     ]);
                     if !val.is_finite() {
-                        return Err(format!("Invalid Float32 value: {}", val));
+                        return Err(format!("Invalid Float32 value: {val}"));
                     }
                 }
                 "std_msgs/msg/Float64" => {
@@ -1768,7 +1738,7 @@ fn test_std_msgs_type_safety(reader: &mut Reader) -> Result<(), String> {
                         aligned_data[7],
                     ]);
                     if !val.is_finite() {
-                        return Err(format!("Invalid Float64 value: {}", val));
+                        return Err(format!("Invalid Float64 value: {val}"));
                     }
                 }
                 _ => {
@@ -1809,9 +1779,9 @@ fn test_sensor_msgs_type_safety(reader: &mut Reader) -> Result<(), String> {
 
         for message_result in reader
             .messages_filtered(Some(&type_connections), None, None)
-            .map_err(|e| format!("Failed to get messages: {}", e))?
+            .map_err(|e| format!("Failed to get messages: {e}"))?
         {
-            let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+            let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
             // Validate CDR header
             validate_cdr_header(&message.data)?;
@@ -1819,7 +1789,7 @@ fn test_sensor_msgs_type_safety(reader: &mut Reader) -> Result<(), String> {
             // All sensor messages should have a Header
             let data = &message.data[4..]; // Skip CDR header
             let (header_size, frame_id) = parse_header(data)
-                .map_err(|e| format!("Failed to parse header in {}: {}", msg_type, e))?;
+                .map_err(|e| format!("Failed to parse header in {msg_type}: {e}"))?;
 
             // Validate frame_id is reasonable
             if frame_id.len() > 1000 {
@@ -1832,7 +1802,7 @@ fn test_sensor_msgs_type_safety(reader: &mut Reader) -> Result<(), String> {
 
             // Validate we have data after the header
             if data.len() <= header_size {
-                return Err(format!("No payload data after header in {}", msg_type));
+                return Err(format!("No payload data after header in {msg_type}"));
             }
 
             // Type-specific validation
@@ -1898,9 +1868,9 @@ fn test_nav_msgs_type_safety(reader: &mut Reader) -> Result<(), String> {
 
         for message_result in reader
             .messages_filtered(Some(&type_connections), None, None)
-            .map_err(|e| format!("Failed to get messages: {}", e))?
+            .map_err(|e| format!("Failed to get messages: {e}"))?
         {
-            let message = message_result.map_err(|e| format!("Failed to read message: {}", e))?;
+            let message = message_result.map_err(|e| format!("Failed to read message: {e}"))?;
 
             // Validate CDR header
             validate_cdr_header(&message.data)?;
@@ -1908,7 +1878,7 @@ fn test_nav_msgs_type_safety(reader: &mut Reader) -> Result<(), String> {
             // All nav messages should have a Header
             let data = &message.data[4..]; // Skip CDR header
             let (header_size, _frame_id) = parse_header(data)
-                .map_err(|e| format!("Failed to parse header in {}: {}", msg_type, e))?;
+                .map_err(|e| format!("Failed to parse header in {msg_type}: {e}"))?;
 
             // Validate minimum size for nav messages (they're typically large)
             if message.data.len() < header_size + 50 {
@@ -1937,14 +1907,13 @@ fn validate_cdr_header(data: &[u8]) -> Result<(), String> {
 
     // Validate endianness (0x00 = big endian, 0x01 = little endian)
     if endianness != 0x00 && endianness != 0x01 {
-        return Err(format!("Invalid CDR endianness: 0x{:02x}", endianness));
+        return Err(format!("Invalid CDR endianness: 0x{endianness:02x}"));
     }
 
     // Validate encapsulation kind (0x00 = CDR BE, 0x01 = CDR LE)
     if encapsulation_kind != 0x00 && encapsulation_kind != 0x01 {
         return Err(format!(
-            "Invalid CDR encapsulation kind: 0x{:02x}",
-            encapsulation_kind
+            "Invalid CDR encapsulation kind: 0x{encapsulation_kind:02x}"
         ));
     }
 
@@ -1976,10 +1945,10 @@ fn test_critical_message_fields(reader: &mut Reader) -> Result<(), String> {
     {
         for message_result in reader
             .messages_filtered(Some(&[pose_conn.clone()]), None, None)
-            .map_err(|e| format!("Failed to get Pose messages: {}", e))?
+            .map_err(|e| format!("Failed to get Pose messages: {e}"))?
         {
             let message =
-                message_result.map_err(|e| format!("Failed to read Pose message: {}", e))?;
+                message_result.map_err(|e| format!("Failed to read Pose message: {e}"))?;
 
             validate_pose_fields(&message.data)?;
         }
@@ -1992,10 +1961,10 @@ fn test_critical_message_fields(reader: &mut Reader) -> Result<(), String> {
     {
         for message_result in reader
             .messages_filtered(Some(&[twist_conn.clone()]), None, None)
-            .map_err(|e| format!("Failed to get Twist messages: {}", e))?
+            .map_err(|e| format!("Failed to get Twist messages: {e}"))?
         {
             let message =
-                message_result.map_err(|e| format!("Failed to read Twist message: {}", e))?;
+                message_result.map_err(|e| format!("Failed to read Twist message: {e}"))?;
 
             validate_twist_fields(&message.data)?;
         }
@@ -2008,10 +1977,9 @@ fn test_critical_message_fields(reader: &mut Reader) -> Result<(), String> {
     {
         for message_result in reader
             .messages_filtered(Some(&[imu_conn.clone()]), None, None)
-            .map_err(|e| format!("Failed to get IMU messages: {}", e))?
+            .map_err(|e| format!("Failed to get IMU messages: {e}"))?
         {
-            let message =
-                message_result.map_err(|e| format!("Failed to read IMU message: {}", e))?;
+            let message = message_result.map_err(|e| format!("Failed to read IMU message: {e}"))?;
 
             validate_imu_fields(&message.data)?;
         }
@@ -2067,8 +2035,7 @@ fn validate_pose_fields(data: &[u8]) -> Result<(), String> {
     // We should find at least a few reasonable float values
     if float_count < 3 {
         return Err(format!(
-            "Found only {} reasonable float values in Pose",
-            float_count
+            "Found only {float_count} reasonable float values in Pose"
         ));
     }
 
@@ -2122,8 +2089,7 @@ fn validate_twist_fields(data: &[u8]) -> Result<(), String> {
     // We should find at least a few reasonable float values
     if float_count < 3 {
         return Err(format!(
-            "Found only {} reasonable float values in Twist",
-            float_count
+            "Found only {float_count} reasonable float values in Twist"
         ));
     }
 
@@ -2204,18 +2170,14 @@ fn validate_imu_fields(data: &[u8]) -> Result<(), String> {
     // Validate quaternion
     if !quat_x.is_finite() || !quat_y.is_finite() || !quat_z.is_finite() || !quat_w.is_finite() {
         return Err(format!(
-            "Invalid IMU quaternion: ({}, {}, {}, {})",
-            quat_x, quat_y, quat_z, quat_w
+            "Invalid IMU quaternion: ({quat_x}, {quat_y}, {quat_z}, {quat_w})"
         ));
     }
 
     // Check quaternion normalization
     let quat_norm = (quat_x * quat_x + quat_y * quat_y + quat_z * quat_z + quat_w * quat_w).sqrt();
     if quat_norm > 0.0 && (quat_norm - 1.0).abs() > 1e-3 {
-        return Err(format!(
-            "IMU quaternion not normalized: norm = {}",
-            quat_norm
-        ));
+        return Err(format!("IMU quaternion not normalized: norm = {quat_norm}"));
     }
 
     Ok(())
@@ -2246,10 +2208,10 @@ fn test_array_and_sequence_fields(reader: &mut Reader) -> Result<(), String> {
 
         for message_result in reader
             .messages_filtered(Some(&type_connections), None, None)
-            .map_err(|e| format!("Failed to get {} messages: {}", msg_type, e))?
+            .map_err(|e| format!("Failed to get {msg_type} messages: {e}"))?
         {
-            let message = message_result
-                .map_err(|e| format!("Failed to read {} message: {}", msg_type, e))?;
+            let message =
+                message_result.map_err(|e| format!("Failed to read {msg_type} message: {e}"))?;
 
             validate_cdr_header(&message.data)?;
 
@@ -2264,7 +2226,7 @@ fn test_array_and_sequence_fields(reader: &mut Reader) -> Result<(), String> {
                 _ => {
                     // Basic validation for other array types
                     if message.data.len() < 20 {
-                        return Err(format!("{} message too short for array data", msg_type));
+                        return Err(format!("{msg_type} message too short for array data"));
                     }
                 }
             }
@@ -2293,13 +2255,12 @@ fn validate_image_array_consistency(data: &[u8]) -> Result<(), String> {
 
     // Validate dimensions are reasonable
     if height == 0 || width == 0 {
-        return Err(format!("Invalid image dimensions: {}x{}", width, height));
+        return Err(format!("Invalid image dimensions: {width}x{height}"));
     }
 
     if height > 10000 || width > 10000 {
         return Err(format!(
-            "Unreasonably large image dimensions: {}x{}",
-            width, height
+            "Unreasonably large image dimensions: {width}x{height}"
         ));
     }
 
@@ -2349,17 +2310,17 @@ fn test_timestamp_fields(reader: &mut Reader) -> Result<(), String> {
 
         for message_result in reader
             .messages_filtered(Some(&type_connections), None, None)
-            .map_err(|e| format!("Failed to get {} messages: {}", msg_type, e))?
+            .map_err(|e| format!("Failed to get {msg_type} messages: {e}"))?
         {
-            let message = message_result
-                .map_err(|e| format!("Failed to read {} message: {}", msg_type, e))?;
+            let message =
+                message_result.map_err(|e| format!("Failed to read {msg_type} message: {e}"))?;
 
             validate_cdr_header(&message.data)?;
 
             // Parse header and validate timestamp
             let payload = &message.data[4..];
             if payload.len() < 12 {
-                return Err(format!("Insufficient data for timestamp in {}", msg_type));
+                return Err(format!("Insufficient data for timestamp in {msg_type}"));
             }
 
             // Parse timestamp (sec + nanosec)
@@ -2368,22 +2329,19 @@ fn test_timestamp_fields(reader: &mut Reader) -> Result<(), String> {
 
             // Validate timestamp is reasonable
             if nanosec >= 1_000_000_000 {
-                return Err(format!("Invalid nanoseconds in {}: {}", msg_type, nanosec));
+                return Err(format!("Invalid nanoseconds in {msg_type}: {nanosec}"));
             }
 
             // Validate timestamp is not zero (unless it's intentionally zero)
             let total_ns = (sec as u64) * 1_000_000_000 + (nanosec as u64);
             if total_ns == 0 {
-                return Err(format!("Zero timestamp in {}", msg_type));
+                return Err(format!("Zero timestamp in {msg_type}"));
             }
 
             // Validate timestamp is not unreasonably far in the future
             // (assuming test data is from a reasonable time range)
             if sec > 2_000_000_000 {
-                return Err(format!(
-                    "Timestamp too far in future in {}: {}",
-                    msg_type, sec
-                ));
+                return Err(format!("Timestamp too far in future in {msg_type}: {sec}"));
             }
         }
     }
@@ -2419,11 +2377,11 @@ fn test_individual_message_type(
     // Get messages for this specific connection
     if let Some(message_result) = reader
         .messages_filtered(Some(&[connection.clone()]), None, None)
-        .map_err(|e| format!("Failed to get messages for {}: {}", msg_type, e))?
+        .map_err(|e| format!("Failed to get messages for {msg_type}: {e}"))?
         .next()
     {
-        let message = message_result
-            .map_err(|e| format!("Failed to read message for {}: {}", msg_type, e))?;
+        let message =
+            message_result.map_err(|e| format!("Failed to read message for {msg_type}: {e}"))?;
 
         // Basic validation that applies to all message types
         validate_basic_message_structure(&message.data, msg_type)?;
@@ -2483,45 +2441,42 @@ fn validate_geometry_message(data: &[u8], msg_type: &str) -> Result<(), String> 
         "geometry_msgs/msg/Point" | "geometry_msgs/msg/Vector3" => {
             // Should have 3 x f64 = 24 bytes minimum
             if payload.len() < 20 {
-                return Err(format!("Insufficient data for {}", msg_type));
+                return Err(format!("Insufficient data for {msg_type}"));
             }
             validate_float_values(payload, 3, msg_type)?;
         }
         "geometry_msgs/msg/Quaternion" => {
             // Should have 4 x f64 = 32 bytes minimum
             if payload.len() < 28 {
-                return Err(format!("Insufficient data for {}", msg_type));
+                return Err(format!("Insufficient data for {msg_type}"));
             }
             validate_float_values(payload, 4, msg_type)?;
         }
         "geometry_msgs/msg/Pose" => {
             // Should have 7 x f64 = 56 bytes minimum (Point + Quaternion)
             if payload.len() < 50 {
-                return Err(format!("Insufficient data for {}", msg_type));
+                return Err(format!("Insufficient data for {msg_type}"));
             }
             validate_float_values(payload, 7, msg_type)?;
         }
         "geometry_msgs/msg/Twist" => {
             // Should have 6 x f64 = 48 bytes minimum (2 x Vector3)
             if payload.len() < 40 {
-                return Err(format!("Insufficient data for {}", msg_type));
+                return Err(format!("Insufficient data for {msg_type}"));
             }
             validate_float_values(payload, 6, msg_type)?;
         }
         _ if msg_type.ends_with("Stamped") => {
             // Stamped messages have Header + geometry data
             if payload.len() < 20 {
-                return Err(format!(
-                    "Insufficient data for stamped message {}",
-                    msg_type
-                ));
+                return Err(format!("Insufficient data for stamped message {msg_type}"));
             }
             validate_header_structure(payload, msg_type)?;
         }
         _ => {
             // Other geometry messages - basic validation
             if payload.len() < 8 {
-                return Err(format!("Insufficient data for {}", msg_type));
+                return Err(format!("Insufficient data for {msg_type}"));
             }
         }
     }
@@ -2536,7 +2491,7 @@ fn validate_sensor_message(data: &[u8], msg_type: &str) -> Result<(), String> {
 
     // Very basic validation for sensor messages - just check we have some data
     if payload.is_empty() {
-        return Err(format!("No payload data for sensor message {}", msg_type));
+        return Err(format!("No payload data for sensor message {msg_type}"));
     }
 
     // Try to validate header structure for messages that definitely should have headers
@@ -2580,7 +2535,7 @@ fn validate_sensor_message(data: &[u8], msg_type: &str) -> Result<(), String> {
             // Other sensor messages - very basic validation
             // Some sensor messages like NavSatStatus are very small
             if payload.is_empty() {
-                return Err(format!("No data for {}", msg_type));
+                return Err(format!("No data for {msg_type}"));
             }
         }
     }
@@ -2602,7 +2557,7 @@ fn validate_std_message(data: &[u8], msg_type: &str) -> Result<(), String> {
             let string_len =
                 u32::from_le_bytes([payload[0], payload[1], payload[2], payload[3]]) as usize;
             if string_len > 1_000_000 {
-                return Err(format!("Unreasonable string length: {}", string_len));
+                return Err(format!("Unreasonable string length: {string_len}"));
             }
         }
         "std_msgs/msg/Header" => {
@@ -2611,13 +2566,13 @@ fn validate_std_message(data: &[u8], msg_type: &str) -> Result<(), String> {
         _ if msg_type.contains("Array") => {
             // Array messages should have layout + data
             if payload.len() < 8 {
-                return Err(format!("Insufficient data for array message {}", msg_type));
+                return Err(format!("Insufficient data for array message {msg_type}"));
             }
         }
         _ => {
             // Basic primitive types
             if payload.is_empty() {
-                return Err(format!("Insufficient data for {}", msg_type));
+                return Err(format!("Insufficient data for {msg_type}"));
             }
         }
     }
@@ -2632,7 +2587,7 @@ fn validate_nav_message(data: &[u8], msg_type: &str) -> Result<(), String> {
 
     // Basic validation for nav messages
     if payload.len() < 8 {
-        return Err(format!("Insufficient data for nav message {}", msg_type));
+        return Err(format!("Insufficient data for nav message {msg_type}"));
     }
 
     // Try to validate header structure for messages that should have headers
@@ -2650,7 +2605,7 @@ fn validate_nav_message(data: &[u8], msg_type: &str) -> Result<(), String> {
 
     // Nav messages are typically large with complex structures
     if payload.len() < 20 {
-        return Err(format!("Insufficient data for {}", msg_type));
+        return Err(format!("Insufficient data for {msg_type}"));
     }
 
     Ok(())
@@ -2663,7 +2618,7 @@ fn validate_stereo_message(data: &[u8], msg_type: &str) -> Result<(), String> {
 
     // Stereo messages - just check we have some data
     if payload.is_empty() {
-        return Err(format!("No data for stereo message {}", msg_type));
+        return Err(format!("No data for stereo message {msg_type}"));
     }
 
     Ok(())
@@ -2676,7 +2631,7 @@ fn validate_tf2_message(data: &[u8], msg_type: &str) -> Result<(), String> {
 
     // TF2 messages can be small (like TF2Error) - just check we have some data
     if payload.is_empty() {
-        return Err(format!("No data for tf2 message {}", msg_type));
+        return Err(format!("No data for tf2 message {msg_type}"));
     }
 
     Ok(())
@@ -2686,7 +2641,7 @@ fn validate_tf2_message(data: &[u8], msg_type: &str) -> Result<(), String> {
 #[cfg(feature = "sqlite")]
 fn validate_header_structure(data: &[u8], msg_type: &str) -> Result<(), String> {
     if data.len() < 12 {
-        return Err(format!("Insufficient data for header in {}", msg_type));
+        return Err(format!("Insufficient data for header in {msg_type}"));
     }
 
     // Parse timestamp (sec + nanosec)
@@ -2695,19 +2650,19 @@ fn validate_header_structure(data: &[u8], msg_type: &str) -> Result<(), String> 
 
     // Validate timestamp components
     if nanosec >= 1_000_000_000 {
-        return Err(format!("Invalid nanoseconds in header: {}", nanosec));
+        return Err(format!("Invalid nanoseconds in header: {nanosec}"));
     }
 
     // Validate timestamp is reasonable (not too far in future)
     if sec > 2_000_000_000 {
-        return Err(format!("Timestamp too far in future: {}", sec));
+        return Err(format!("Timestamp too far in future: {sec}"));
     }
 
     // Parse frame_id length
     let frame_id_len = u32::from_le_bytes([data[8], data[9], data[10], data[11]]) as usize;
 
     if frame_id_len > 1000 {
-        return Err(format!("Unreasonable frame_id length: {}", frame_id_len));
+        return Err(format!("Unreasonable frame_id length: {frame_id_len}"));
     }
 
     if data.len() < 12 + frame_id_len {
@@ -2745,8 +2700,7 @@ fn validate_float_values(data: &[u8], expected_count: usize, msg_type: &str) -> 
 
     if valid_floats < expected_count / 2 {
         return Err(format!(
-            "Found only {} valid floats out of expected {} in {}",
-            valid_floats, expected_count, msg_type
+            "Found only {valid_floats} valid floats out of expected {expected_count} in {msg_type}"
         ));
     }
 
