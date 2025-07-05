@@ -3,7 +3,7 @@
 use crate::error::{ReaderError, Result};
 use crate::metadata::BagMetadata;
 use crate::storage::{create_storage_reader, StorageReader};
-use crate::types::{Connection, Message, MessageDefinition, TopicInfo};
+use crate::types::{Connection, Message, MessageDefinition, RawMessage, TopicInfo};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -258,10 +258,56 @@ impl Reader {
         }
 
         let storage = self.storage.as_ref().unwrap();
-        storage.messages(connections, start, stop)
+        let iterator = storage.messages_filtered(connections, start, stop)?;
+        Ok(iterator)
     }
 
-    /// Check if the bag is currently open
+    /// Get raw message data without deserialization for maximum performance
+    /// This is equivalent to ROS2's SerializedBagMessage for high-speed copying
+    pub fn raw_messages(&self) -> Result<Box<dyn Iterator<Item = Result<RawMessage>> + '_>> {
+        if !self.is_open {
+            return Err(ReaderError::BagNotOpen);
+        }
+
+        let storage = self.storage.as_ref().unwrap();
+        let iterator = storage.raw_messages()?;
+        Ok(iterator)
+    }
+
+    /// Get filtered raw message data without deserialization
+    /// This provides the highest performance way to read specific topics/time ranges
+    pub fn raw_messages_filtered(
+        &self,
+        connections: Option<&[Connection]>,
+        start: Option<u64>,
+        stop: Option<u64>,
+    ) -> Result<Box<dyn Iterator<Item = Result<RawMessage>> + '_>> {
+        if !self.is_open {
+            return Err(ReaderError::BagNotOpen);
+        }
+
+        let storage = self.storage.as_ref().unwrap();
+        let iterator = storage.raw_messages_filtered(connections, start, stop)?;
+        Ok(iterator)
+    }
+
+    /// Read all messages in raw format as a batch for bulk operations
+    /// This is the fastest way to copy entire bags or large chunks of data
+    pub fn read_raw_messages_batch(
+        &self,
+        connections: Option<&[Connection]>,
+        start: Option<u64>,
+        stop: Option<u64>,
+    ) -> Result<Vec<RawMessage>> {
+        if !self.is_open {
+            return Err(ReaderError::BagNotOpen);
+        }
+
+        let storage = self.storage.as_ref().unwrap();
+        storage.read_raw_messages_batch(connections, start, stop)
+    }
+
+    /// Check if the bag is open
     pub fn is_open(&self) -> bool {
         self.is_open
     }

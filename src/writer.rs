@@ -159,11 +159,11 @@ impl Writer {
     }
 
     /// Configure message buffer settings for performance optimization
-    /// 
+    ///
     /// # Arguments
     /// * `buffer_size_mb` - Maximum buffer size in megabytes (default: 10MB)
     /// * `batch_threshold` - Number of messages to trigger flush (default: 100)
-    /// 
+    ///
     /// # Example
     /// ```no_run
     /// # use rosbags_rs::Writer;
@@ -171,7 +171,11 @@ impl Writer {
     /// // Use 20MB buffer with 500 message batches for high-throughput scenarios
     /// writer.configure_buffer(20, 500).unwrap();
     /// ```
-    pub fn configure_buffer(&mut self, buffer_size_mb: usize, batch_threshold: usize) -> Result<()> {
+    pub fn configure_buffer(
+        &mut self,
+        buffer_size_mb: usize,
+        batch_threshold: usize,
+    ) -> Result<()> {
         if self.is_open {
             return Err(BagError::BagAlreadyOpen);
         }
@@ -182,7 +186,7 @@ impl Writer {
     }
 
     /// Flush the message buffer to storage
-    /// 
+    ///
     /// This method writes all buffered messages to storage in a batch operation.
     /// It's automatically called when the buffer reaches its limits, but can also
     /// be called manually for explicit control.
@@ -192,7 +196,8 @@ impl Writer {
         }
 
         // Convert buffer to format expected by write_batch
-        let batch_messages: Vec<(Connection, u64, Vec<u8>)> = self.message_buffer
+        let batch_messages: Vec<(Connection, u64, Vec<u8>)> = self
+            .message_buffer
             .iter()
             .map(|msg| (msg.connection.clone(), msg.timestamp, msg.data.clone()))
             .collect();
@@ -211,7 +216,7 @@ impl Writer {
 
     /// Check if buffer should be flushed
     fn should_flush_buffer(&self) -> bool {
-        self.message_buffer.len() >= self.batch_threshold 
+        self.message_buffer.len() >= self.batch_threshold
             || self.current_buffer_size >= self.buffer_size_limit
     }
 
@@ -529,6 +534,97 @@ impl Writer {
 
         Ok(())
     }
+
+    /// Write a raw serialized message directly without any deserialization/serialization overhead.
+    /// This is the fastest way to copy messages between bags when no processing is needed.
+    ///
+    /// This method bypasses all message processing and directly writes the raw bytes,
+    /// similar to how ROS2 bag convert achieves high performance.
+    pub fn write_raw_message(
+        &mut self,
+        connection: &Connection,
+        timestamp: u64,
+        raw_data: &[u8],
+    ) -> Result<()> {
+        if !self.is_open {
+            return Err(BagError::BagNotOpen);
+        }
+
+        // Update min/max timestamps
+        if timestamp < self.min_timestamp {
+            self.min_timestamp = timestamp;
+        }
+        if timestamp > self.max_timestamp {
+            self.max_timestamp = timestamp;
+        }
+
+        // Update message count
+        *self.message_counts.entry(connection.id).or_insert(0) += 1;
+
+        // Add to buffer for batch writing
+        let buffered_msg = BufferedMessage {
+            connection: connection.clone(),
+            timestamp,
+            data: raw_data.to_vec(),
+        };
+
+        self.current_buffer_size += raw_data.len();
+        self.message_buffer.push(buffered_msg);
+
+        // Flush if buffer is full
+        if self.should_flush_buffer() {
+            self.flush_buffer()?;
+        }
+
+        Ok(())
+    }
+
+    /// Write multiple raw messages in a batch for maximum performance.
+    /// This is optimized for bulk transfer operations and skips individual buffer checks.
+    pub fn write_raw_messages_batch(
+        &mut self,
+        messages: &[(Connection, u64, Vec<u8>)],
+    ) -> Result<()> {
+        if !self.is_open {
+            return Err(BagError::BagNotOpen);
+        }
+
+        if messages.is_empty() {
+            return Ok(());
+        }
+
+        // Flush existing buffer first
+        self.flush_buffer()?;
+
+        // Update statistics
+        for (connection, timestamp, _data) in messages {
+            if *timestamp < self.min_timestamp {
+                self.min_timestamp = *timestamp;
+            }
+            if *timestamp > self.max_timestamp {
+                self.max_timestamp = *timestamp;
+            }
+            *self.message_counts.entry(connection.id).or_insert(0) += 1;
+        }
+
+        // Use storage's direct batch write if available
+        if let Some(storage) = &mut self.storage {
+            storage.write_batch(messages)?;
+        }
+
+        Ok(())
+    }
+
+    /// Copy a message directly from a reader without any processing.
+    /// This is the equivalent of ROS2's direct SerializedBagMessage transfer.
+    pub fn copy_raw_message_from_reader(
+        &mut self,
+        connection: &Connection,
+        timestamp: u64,
+        raw_message_data: &[u8],
+    ) -> Result<()> {
+        self.write_raw_message(connection, timestamp, raw_message_data)
+    }
 }
 
 impl Drop for Writer {
@@ -692,7 +788,7 @@ mod tests {
             .unwrap();
 
         let test_data = b"Hello, ROS2!";
-        let timestamp = 1234567890_000_000_000; // nanoseconds
+        let timestamp = 1_234_567_890_000_000_000; // nanoseconds
 
         let result = writer.write(&connection, timestamp, test_data);
         assert!(result.is_ok());
@@ -862,29 +958,26 @@ mod tests {
                 topic.to_string(),
                 msg_type.to_string(),
                 None, // Use default message definition
-                Some(format!("hash_{}", msg_type)),
+                Some(format!("hash_{msg_type}")),
                 None, // Use default CDR serialization
                 None, // Use default QoS
             ) {
                 Ok(connection) => connections.push(connection),
                 Err(e) => {
-                    println!(
-                        "Warning: Failed to add connection for {} ({}): {}",
-                        topic, msg_type, e
-                    );
+                    eprintln!("Warning: Failed to add connection for {topic} ({msg_type}): {e}");
                     // Continue with other connections
                 }
             }
         }
 
-        println!("Successfully added {} connections", connections.len());
+        // Successfully added connections - no need to print in production
         assert!(
             !connections.is_empty(),
             "Should have added at least some connections"
         );
 
         // Write test messages for each connection
-        let base_timestamp = 1234567890_000_000_000; // nanoseconds since epoch
+        let base_timestamp = 1_234_567_890_000_000_000; // nanoseconds since epoch
 
         for (i, connection) in connections.iter().enumerate() {
             // Create simple test data for each message type
@@ -893,10 +986,10 @@ mod tests {
 
             match writer.write(connection, timestamp, &test_data) {
                 Ok(()) => {
-                    println!("Successfully wrote message for {}", connection.topic);
+                    // Successfully wrote message - no need to print in production
                 }
                 Err(e) => {
-                    println!(
+                    eprintln!(
                         "Warning: Failed to write message for {}: {}",
                         connection.topic, e
                     );
@@ -917,11 +1010,7 @@ mod tests {
         assert!(metadata_content.contains("rosbag2_bagfile_information"));
         assert!(metadata_content.contains("topics_with_message_count"));
 
-        println!(
-            "✅ Successfully created comprehensive test bag with {} topics",
-            connections.len()
-        );
-        println!("📁 Bag created at: {}", bag_path.display());
+        // Successfully created comprehensive test bag - no need to print in production
     }
 
     /// Create test message data for different message types
@@ -948,7 +1037,7 @@ mod tests {
             }
             "std_msgs/msg/Float64" => {
                 // CDR-encoded float64: 8 bytes
-                let value = 3.14159f64;
+                let value = std::f64::consts::PI;
                 value.to_le_bytes().to_vec()
             }
             "std_msgs/msg/Bool" => {

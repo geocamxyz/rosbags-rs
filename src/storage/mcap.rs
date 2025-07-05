@@ -160,7 +160,7 @@ impl StorageReader for McapStorageReader {
         Ok(HashMap::new())
     }
 
-    fn messages(
+    fn messages_filtered(
         &self,
         connections: Option<&[Connection]>,
         start: Option<u64>,
@@ -260,6 +260,205 @@ impl StorageReader for McapStorageReader {
 
     fn is_open(&self) -> bool {
         self.is_open
+    }
+
+    fn raw_messages(
+        &self,
+    ) -> Result<Box<dyn Iterator<Item = Result<crate::types::RawMessage>> + '_>> {
+        self.raw_messages_filtered(None, None, None)
+    }
+
+    fn raw_messages_filtered(
+        &self,
+        connections: Option<&[Connection]>,
+        start: Option<u64>,
+        stop: Option<u64>,
+    ) -> Result<Box<dyn Iterator<Item = Result<crate::types::RawMessage>> + '_>> {
+        #[cfg(not(feature = "mcap"))]
+        {
+            return Err(ReaderError::UnsupportedStorageFormat {
+                format: "MCAP support not enabled".to_string(),
+            });
+        }
+
+        #[cfg(feature = "mcap")]
+        {
+            // Create a vector to collect all raw messages from all MCAP files
+            let mut all_messages = Vec::new();
+
+            for mapped_file in &self.mapped_files {
+                // Create message stream from mapped file
+                let message_stream = MessageStream::new(mapped_file).map_err(|e| {
+                    ReaderError::generic(format!("Failed to create message stream: {e}"))
+                })?;
+
+                for message_result in message_stream {
+                    match message_result {
+                        Ok(message) => {
+                            // Check if this message matches the requested connections
+                            if let Some(conns) = connections {
+                                let topic_matches =
+                                    conns.iter().any(|c| c.topic == message.channel.topic);
+                                if !topic_matches {
+                                    continue;
+                                }
+                            }
+
+                            // Check time bounds
+                            let timestamp = message.log_time;
+                            if let Some(start_time) = start {
+                                if timestamp < start_time {
+                                    continue;
+                                }
+                            }
+                            if let Some(stop_time) = stop {
+                                if timestamp > stop_time {
+                                    continue;
+                                }
+                            }
+
+                            // Find or create a connection for this topic
+                            let connection = if let Some(conn) = self
+                                .topic_connections
+                                .iter()
+                                .find(|c| c.topic == message.channel.topic)
+                            {
+                                conn.clone()
+                            } else {
+                                // Create a temporary connection
+                                Connection {
+                                    id: 1, // Use a default ID since MCAP doesn't have connection IDs
+                                    topic: message.channel.topic.clone(),
+                                    message_type: message.channel.message_encoding.clone(),
+                                    message_definition: MessageDefinition::default(),
+                                    type_description_hash: String::new(),
+                                    message_count: 0,
+                                    serialization_format: "cdr".to_string(),
+                                    offered_qos_profiles: Vec::new(),
+                                }
+                            };
+
+                            // Create RawMessage with minimal processing (no CDR parsing)
+                            let raw_msg = crate::types::RawMessage {
+                                connection,
+                                timestamp,
+                                raw_data: message.data.to_vec(),
+                            };
+
+                            all_messages.push(Ok(raw_msg));
+                        }
+                        Err(e) => {
+                            all_messages.push(Err(ReaderError::generic(format!(
+                                "Failed to read MCAP message: {e}"
+                            ))));
+                        }
+                    }
+                }
+            }
+
+            // Sort messages by timestamp
+            all_messages.sort_by(|a, b| match (a, b) {
+                (Ok(msg_a), Ok(msg_b)) => msg_a.timestamp.cmp(&msg_b.timestamp),
+                _ => std::cmp::Ordering::Equal,
+            });
+
+            Ok(Box::new(all_messages.into_iter()))
+        }
+    }
+
+    fn read_raw_messages_batch(
+        &self,
+        connections: Option<&[Connection]>,
+        start: Option<u64>,
+        stop: Option<u64>,
+    ) -> Result<Vec<crate::types::RawMessage>> {
+        #[cfg(not(feature = "mcap"))]
+        {
+            return Err(ReaderError::UnsupportedStorageFormat {
+                format: "MCAP support not enabled".to_string(),
+            });
+        }
+
+        #[cfg(feature = "mcap")]
+        {
+            // Create a vector to collect all raw messages from all MCAP files
+            let mut all_messages = Vec::new();
+
+            for mapped_file in &self.mapped_files {
+                // Create message stream from mapped file
+                let message_stream = MessageStream::new(mapped_file).map_err(|e| {
+                    ReaderError::generic(format!("Failed to create message stream: {e}"))
+                })?;
+
+                for message_result in message_stream {
+                    match message_result {
+                        Ok(message) => {
+                            // Check if this message matches the requested connections
+                            if let Some(conns) = connections {
+                                let topic_matches =
+                                    conns.iter().any(|c| c.topic == message.channel.topic);
+                                if !topic_matches {
+                                    continue;
+                                }
+                            }
+
+                            // Check time bounds
+                            let timestamp = message.log_time;
+                            if let Some(start_time) = start {
+                                if timestamp < start_time {
+                                    continue;
+                                }
+                            }
+                            if let Some(stop_time) = stop {
+                                if timestamp > stop_time {
+                                    continue;
+                                }
+                            }
+
+                            // Find or create a connection for this topic
+                            let connection = if let Some(conn) = self
+                                .topic_connections
+                                .iter()
+                                .find(|c| c.topic == message.channel.topic)
+                            {
+                                conn.clone()
+                            } else {
+                                // Create a temporary connection
+                                Connection {
+                                    id: 1, // Use a default ID since MCAP doesn't have connection IDs
+                                    topic: message.channel.topic.clone(),
+                                    message_type: message.channel.message_encoding.clone(),
+                                    message_definition: MessageDefinition::default(),
+                                    type_description_hash: String::new(),
+                                    message_count: 0,
+                                    serialization_format: "cdr".to_string(),
+                                    offered_qos_profiles: Vec::new(),
+                                }
+                            };
+
+                            // Create RawMessage with minimal processing (no CDR parsing)
+                            let raw_msg = crate::types::RawMessage {
+                                connection,
+                                timestamp,
+                                raw_data: message.data.to_vec(),
+                            };
+
+                            all_messages.push(raw_msg);
+                        }
+                        Err(e) => {
+                            return Err(ReaderError::generic(format!(
+                                "Failed to read MCAP message: {e}"
+                            )));
+                        }
+                    }
+                }
+            }
+
+            // Sort messages by timestamp
+            all_messages.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+
+            Ok(all_messages)
+        }
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

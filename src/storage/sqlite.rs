@@ -232,7 +232,7 @@ impl StorageReader for SqliteReader {
         Ok(self.message_definitions.clone())
     }
 
-    fn messages(
+    fn messages_filtered(
         &self,
         connections: Option<&[Connection]>,
         start: Option<u64>,
@@ -309,6 +309,153 @@ impl StorageReader for SqliteReader {
         self.is_open
     }
 
+    fn raw_messages(
+        &self,
+    ) -> Result<Box<dyn Iterator<Item = Result<crate::types::RawMessage>> + '_>> {
+        self.raw_messages_filtered(None, None, None)
+    }
+
+    fn raw_messages_filtered(
+        &self,
+        connections: Option<&[Connection]>,
+        start: Option<u64>,
+        stop: Option<u64>,
+    ) -> Result<Box<dyn Iterator<Item = Result<crate::types::RawMessage>> + '_>> {
+        if !self.is_open {
+            return Err(ReaderError::BagNotOpen);
+        }
+
+        // Collect all raw messages from all database connections
+        let mut all_messages = Vec::new();
+
+        for db_conn in &self.connections {
+            // Build the SQL query with filters
+            let (query, params) = self.build_message_query(connections, start, stop);
+
+            // Get topic name to connection mapping for this database
+            let mut topic_map = HashMap::new();
+            let mut stmt = db_conn.prepare("SELECT id, name FROM topics")?;
+            let topic_rows = stmt.query_map([], |row| {
+                let id: i32 = row.get(0)?;
+                let name: String = row.get(1)?;
+                Ok((id, name))
+            })?;
+
+            for row in topic_rows {
+                let (topic_id, topic_name) = row?;
+                // Find the connection for this topic
+                if let Some(conn) = self
+                    .topic_connections
+                    .iter()
+                    .find(|c| c.topic == topic_name)
+                {
+                    topic_map.insert(topic_id, conn.clone());
+                }
+            }
+
+            // Execute the message query
+            let mut stmt = db_conn.prepare(&query)?;
+            let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+            let message_rows = stmt.query_map(param_refs.as_slice(), |row| {
+                let topic_id: i32 = row.get(0)?;
+                let timestamp: i64 = row.get(1)?;
+                let data: Vec<u8> = row.get(2)?;
+                Ok((topic_id, timestamp as u64, data))
+            })?;
+
+            // Convert database rows to RawMessage objects (minimal processing)
+            for row in message_rows {
+                let (topic_id, timestamp, raw_data) = row?;
+
+                if let Some(connection) = topic_map.get(&topic_id) {
+                    let raw_message = crate::types::RawMessage {
+                        connection: connection.clone(),
+                        timestamp,
+                        raw_data,
+                    };
+                    all_messages.push(Ok(raw_message));
+                }
+            }
+        }
+
+        // Sort messages by timestamp for consistent ordering
+        all_messages.sort_by(|a, b| match (a, b) {
+            (Ok(msg_a), Ok(msg_b)) => msg_a.timestamp.cmp(&msg_b.timestamp),
+            _ => std::cmp::Ordering::Equal,
+        });
+
+        Ok(Box::new(all_messages.into_iter()))
+    }
+
+    fn read_raw_messages_batch(
+        &self,
+        connections: Option<&[Connection]>,
+        start: Option<u64>,
+        stop: Option<u64>,
+    ) -> Result<Vec<crate::types::RawMessage>> {
+        if !self.is_open {
+            return Err(ReaderError::BagNotOpen);
+        }
+
+        // Collect all raw messages from all database connections
+        let mut all_messages = Vec::new();
+
+        for db_conn in &self.connections {
+            // Build the SQL query with filters
+            let (query, params) = self.build_message_query(connections, start, stop);
+
+            // Get topic name to connection mapping for this database
+            let mut topic_map = HashMap::new();
+            let mut stmt = db_conn.prepare("SELECT id, name FROM topics")?;
+            let topic_rows = stmt.query_map([], |row| {
+                let id: i32 = row.get(0)?;
+                let name: String = row.get(1)?;
+                Ok((id, name))
+            })?;
+
+            for row in topic_rows {
+                let (topic_id, topic_name) = row?;
+                // Find the connection for this topic
+                if let Some(conn) = self
+                    .topic_connections
+                    .iter()
+                    .find(|c| c.topic == topic_name)
+                {
+                    topic_map.insert(topic_id, conn.clone());
+                }
+            }
+
+            // Execute the message query
+            let mut stmt = db_conn.prepare(&query)?;
+            let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+            let message_rows = stmt.query_map(param_refs.as_slice(), |row| {
+                let topic_id: i32 = row.get(0)?;
+                let timestamp: i64 = row.get(1)?;
+                let data: Vec<u8> = row.get(2)?;
+                Ok((topic_id, timestamp as u64, data))
+            })?;
+
+            // Convert database rows to RawMessage objects (minimal processing)
+            for row in message_rows {
+                let (topic_id, timestamp, raw_data) = row?;
+
+                if let Some(connection) = topic_map.get(&topic_id) {
+                    let raw_message = crate::types::RawMessage {
+                        connection: connection.clone(),
+                        timestamp,
+                        raw_data,
+                    };
+                    all_messages.push(raw_message);
+                }
+            }
+        }
+
+        // Sort messages by timestamp for consistent ordering
+        all_messages.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+
+        Ok(all_messages)
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -373,31 +520,6 @@ impl SqliteReader {
         }
 
         Ok(all_connections)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_sqlite_reader_creation() {
-        let reader = SqliteReader::new(vec![], vec![]);
-        assert!(reader.is_ok());
-        let reader = reader.unwrap();
-        assert!(!reader.is_open());
-    }
-
-    #[test]
-    fn test_sqlite_reader_open_close() {
-        let mut reader = SqliteReader::new(vec![], vec![]).unwrap();
-        assert!(!reader.is_open());
-
-        reader.open().unwrap();
-        assert!(reader.is_open());
-
-        reader.close().unwrap();
-        assert!(!reader.is_open());
     }
 }
 
@@ -615,20 +737,18 @@ impl crate::storage::StorageWriter for SqliteWriter {
 
         // Take the connection temporarily to avoid borrowing issues
         let mut conn = self.connection.take().unwrap();
-        
+
         // Start transaction for batch insert
         let tx = conn.transaction()?;
 
         {
-            let mut stmt = tx.prepare(
-                "INSERT INTO messages(topic_id, timestamp, data) VALUES (?1, ?2, ?3)"
-            )?;
+            let mut stmt =
+                tx.prepare("INSERT INTO messages(topic_id, timestamp, data) VALUES (?1, ?2, ?3)")?;
 
             for (connection, timestamp, data) in messages {
-                let topic_id = self
-                    .topic_id_map
-                    .get(&connection.topic)
-                    .ok_or_else(|| crate::error::BagError::connection_not_found(&connection.topic))?;
+                let topic_id = self.topic_id_map.get(&connection.topic).ok_or_else(|| {
+                    crate::error::BagError::connection_not_found(&connection.topic)
+                })?;
 
                 stmt.execute((topic_id, *timestamp as i64, data))?;
             }
@@ -649,5 +769,30 @@ impl crate::storage::StorageWriter for SqliteWriter {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sqlite_reader_creation() {
+        let reader = SqliteReader::new(vec![], vec![]);
+        assert!(reader.is_ok());
+        let reader = reader.unwrap();
+        assert!(!reader.is_open());
+    }
+
+    #[test]
+    fn test_sqlite_reader_open_close() {
+        let mut reader = SqliteReader::new(vec![], vec![]).unwrap();
+        assert!(!reader.is_open());
+
+        reader.open().unwrap();
+        assert!(reader.is_open());
+
+        reader.close().unwrap();
+        assert!(!reader.is_open());
     }
 }

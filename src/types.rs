@@ -147,6 +147,18 @@ pub struct Message {
     pub data: Vec<u8>,
 }
 
+/// A raw message from the bag file with minimal processing overhead
+/// This is equivalent to ROS2's SerializedBagMessage for high-performance operations
+#[derive(Debug, Clone)]
+pub struct RawMessage {
+    /// Connection this message belongs to
+    pub connection: Connection,
+    /// Timestamp in nanoseconds since epoch
+    pub timestamp: u64,
+    /// Raw serialized message data (CDR format)
+    pub raw_data: Vec<u8>,
+}
+
 /// Time duration in nanoseconds
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Duration {

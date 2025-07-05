@@ -50,27 +50,27 @@
 //! ```no_run
 //! use rosbags_rs::{Writer, StoragePlugin};
 //! use std::path::Path;
-//! 
+//!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let mut writer = Writer::new("output_bag", None, Some(StoragePlugin::Sqlite3))?;
-//! 
+//!
 //! // Configure high-performance buffering (20MB buffer, 500 message batches)
 //! writer.configure_buffer(20, 500)?;
-//! 
+//!
 //! writer.open()?;
-//! 
+//!
 //! let connection = writer.add_connection(
 //!     "/my_topic".to_string(),
 //!     "std_msgs/msg/String".to_string(),
 //!     None, None, None, None
 //! )?;
-//! 
+//!
 //! // Write messages - automatically batched for optimal performance
 //! for i in 0..1000 {
 //!     let timestamp = 1000000000u64 + i * 100000000; // 100ms intervals
 //!     writer.write(&connection, timestamp, b"hello")?;
 //! }
-//! 
+//!
 //! writer.close()?; // Automatically flushes remaining buffered messages
 //! # Ok(())
 //! # }
@@ -83,7 +83,7 @@
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let metadata = read_bag_metadata_fast(Path::new("path/to/bag"))?;
-//! 
+//!
 //! println!("Duration: {:.2}s", metadata.duration() as f64 / 1e9);
 //! println!("Message count: {}", metadata.message_count());
 //! println!("Topics: {}", metadata.info().topics_with_message_count.len());
@@ -204,32 +204,32 @@ pub use types::{
 pub use writer::Writer;
 
 /// Fast bag metadata reading without opening storage files
-/// 
+///
 /// This function reads only the metadata.yaml file to quickly extract bag information
 /// without the overhead of opening and parsing storage files. This is ideal for
 /// getting basic bag information like duration, message count, and topic list.
-/// 
+///
 /// # Arguments
 /// * `bag_path` - Path to the ROS2 bag directory
-/// 
+///
 /// # Returns
 /// * `BagMetadata` containing all bag information from metadata.yaml
-/// 
+///
 /// # Example
 /// ```no_run
 /// use rosbags_rs::read_bag_metadata_fast;
 /// use std::path::Path;
-/// 
+///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let metadata = read_bag_metadata_fast(Path::new("path/to/bag"))?;
-/// 
+///
 /// println!("Duration: {:.2}s", metadata.duration() as f64 / 1e9);
 /// println!("Message count: {}", metadata.message_count());
 /// println!("Start time: {}", metadata.start_time());
 /// println!("End time: {}", metadata.end_time());
-/// 
+///
 /// for topic in &metadata.info().topics_with_message_count {
-///     println!("Topic: {} ({}), Count: {}", 
+///     println!("Topic: {} ({}), Count: {}",
 ///         topic.topic_metadata.name,
 ///         topic.topic_metadata.message_type,
 ///         topic.message_count
@@ -241,7 +241,7 @@ pub use writer::Writer;
 pub fn read_bag_metadata_fast<P: AsRef<std::path::Path>>(bag_path: P) -> Result<BagMetadata> {
     let bag_path = bag_path.as_ref();
     let metadata_path = bag_path.join("metadata.yaml");
-    
+
     BagMetadata::from_file(metadata_path)
 }
 

@@ -1,7 +1,9 @@
 //! Storage backend implementations for ROS2 bag files
 
 use crate::error::Result;
-use crate::types::{CompressionMode, Connection, Message, MessageDefinition, StoragePlugin};
+use crate::types::{
+    CompressionMode, Connection, Message, MessageDefinition, RawMessage, StoragePlugin,
+};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -23,12 +25,31 @@ pub trait StorageReader {
     fn get_definitions(&self) -> Result<HashMap<String, MessageDefinition>>;
 
     /// Iterate over messages, optionally filtered by connections, start time, and stop time
-    fn messages(
+    fn messages_filtered(
         &self,
         connections: Option<&[Connection]>,
         start: Option<u64>,
         stop: Option<u64>,
     ) -> Result<Box<dyn Iterator<Item = Result<Message>> + '_>>;
+
+    /// Iterate over raw messages without deserialization for maximum performance
+    fn raw_messages(&self) -> Result<Box<dyn Iterator<Item = Result<RawMessage>> + '_>>;
+
+    /// Iterate over filtered raw messages without deserialization
+    fn raw_messages_filtered(
+        &self,
+        connections: Option<&[Connection]>,
+        start: Option<u64>,
+        stop: Option<u64>,
+    ) -> Result<Box<dyn Iterator<Item = Result<RawMessage>> + '_>>;
+
+    /// Read all raw messages as a batch for bulk operations
+    fn read_raw_messages_batch(
+        &self,
+        connections: Option<&[Connection]>,
+        start: Option<u64>,
+        stop: Option<u64>,
+    ) -> Result<Vec<RawMessage>>;
 
     /// Check if the storage is currently open
     fn is_open(&self) -> bool;
@@ -49,7 +70,8 @@ pub trait StorageWriter: std::any::Any {
     fn add_msgtype(&mut self, connection: &Connection) -> Result<()>;
 
     /// Add a connection (topic) to the storage
-    fn add_connection(&mut self, connection: &Connection, offered_qos_profiles: &str) -> Result<()>;
+    fn add_connection(&mut self, connection: &Connection, offered_qos_profiles: &str)
+        -> Result<()>;
 
     /// Write a single message to the storage
     fn write(&mut self, connection: &Connection, timestamp: u64, data: &[u8]) -> Result<()>;
