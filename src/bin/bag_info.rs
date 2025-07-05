@@ -46,15 +46,18 @@ fn main() -> Result<(), ReaderError> {
     // Print information in reference format
     println!("Files:             {}", format_file_list(storage_files));
     println!("Bag size:          {}", format_size(total_size));
-    println!("Storage id:        {}", storage_id);
-    println!("Duration:          {:.9}s", duration_s);
+    println!("Storage id:        {storage_id}");
+    println!("Duration:          {duration_s:.9}s");
     println!("Start:             {}", format_timestamp(start_time_ns));
     println!("End:               {}", format_timestamp(end_time_ns));
-    println!("Messages:          {}", message_count);
+    println!("Messages:          {message_count}");
 
     // Print topic information directly from metadata
     if !info.topics_with_message_count.is_empty() {
-        println!("Topic information: {}", format_first_topic_from_metadata(&info.topics_with_message_count[0]));
+        println!(
+            "Topic information: {}",
+            format_first_topic_from_metadata(&info.topics_with_message_count[0])
+        );
         for topic in info.topics_with_message_count.iter().skip(1) {
             println!("                   {}", format_topic_from_metadata(topic));
         }
@@ -133,10 +136,7 @@ fn format_timestamp(timestamp_ns: u64) -> String {
             timestamp_ns_frac
         )
     } else {
-        format!(
-            "Invalid timestamp ({}.{:09})",
-            timestamp_s, timestamp_ns_frac
-        )
+        format!("Invalid timestamp ({timestamp_s}.{timestamp_ns_frac:09})")
     }
 }
 

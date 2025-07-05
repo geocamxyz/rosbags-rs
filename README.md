@@ -5,11 +5,11 @@
 [![Documentation](https://docs.rs/rosbags-rs/badge.svg)](https://docs.rs/rosbags-rs)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-A high-performance Rust library for reading ROS2 bag files with **full Python rosbags compatibility**. This library provides comprehensive functionality to read ROS2 bag files in both SQLite3 and MCAP formats, with guaranteed byte-for-byte identical results compared to the Python rosbags library.
+A high-performance Rust library for reading and writing ROS2 bag files with **full Python rosbags compatibility**. This library provides comprehensive functionality to read and write ROS2 bag files in both SQLite3 and MCAP formats, with guaranteed byte-for-byte identical results compared to the Python rosbags library.
 
 ## 🚀 Features
 
-- ✅ **Complete ROS2 bag reading** - SQLite3 and MCAP formats
+- ✅ **Complete ROS2 bag reading and writing** - SQLite3 and MCAP formats
 - ✅ **94+ ROS2 message types** - Full support across all major categories
 - ✅ **Python rosbags compatibility** - Byte-for-byte identical results
 - ✅ **High performance** - Zero-copy message reading where possible
@@ -35,86 +35,49 @@ Add this to your `Cargo.toml`:
 rosbags-rs = "0.2.0"
 ```
 
-## 🚀 Quick Start
+## 🔧 Command Line Tools
 
-```rust
-use rosbags_rs::{Reader, ReaderError};
-use std::path::Path;
+This library includes several command-line utilities for working with ROS2 bag files:
 
-fn main() -> Result<(), ReaderError> {
-    // Open a ROS2 bag
-    let bag_path = Path::new("/path/to/rosbag2_directory");
-    let mut reader = Reader::new(bag_path)?;
-    reader.open()?;
-
-    // Print basic information
-    println!("Duration: {:.2} seconds", reader.duration() as f64 / 1_000_000_000.0);
-    println!("Messages: {}", reader.message_count());
-
-    // List topics with detailed information
-    for topic in reader.topics() {
-        println!("📡 Topic: {}", topic.name);
-        println!("   Type: {}", topic.message_type);
-        println!("   Messages: {}", topic.message_count);
-        println!("   Serialization: {}", topic.serialization_format);
-    }
-
-    // Read all messages
-    for message_result in reader.messages()? {
-        let message = message_result?;
-        println!("📨 Topic: {}, Timestamp: {}, Size: {} bytes",
-                 message.topic, message.timestamp, message.data.len());
-    }
-
-    Ok(())
-}
-```
-
-## 📚 Examples
-
-### Basic Bag Information
+### `bag_filter` - Copy and filter bag files
+High-performance bag copying with topic and time filtering:
 
 ```bash
-cargo run --example bag_info /path/to/rosbag2_directory
+# Copy entire bag
+cargo run --bin bag_filter -- /path/to/input_bag /path/to/output_bag
+
+# Copy specific topics only
+cargo run --bin bag_filter -- /path/to/input_bag /path/to/output_bag --topics /imu/data,/camera/image_raw
+
+# Copy with time filtering
+cargo run --bin bag_filter -- /path/to/input_bag /path/to/output_bag --start 1000000000 --end 2000000000
+
+# List available topics
+cargo run --bin bag_filter -- /path/to/input_bag /path/to/output_bag --list-topics
+
+# Use verbose output
+cargo run --bin bag_filter -- /path/to/input_bag /path/to/output_bag --verbose
 ```
 
-### List All Topics
+### `bag_info` - Display bag information
+Show metadata and statistics about bag files:
 
 ```bash
-cargo run --example list_topics /path/to/rosbag2_directory
+cargo run --bin bag_info -- /path/to/rosbag2_directory
 ```
 
-For detailed topic information:
+### `extract_topic_data` - Extract topic data to files
+Extract specific topic data and save to appropriate file formats:
 
 ```bash
-VERBOSE=1 cargo run --example list_topics /path/to/rosbag2_directory
+cargo run --bin extract_topic_data -- /path/to/bag /topic_name /output/directory
 ```
 
-### Extract Specific Topic
+### `write_dummy_bag` - Create test bags
+Generate test bag files with sample data for testing:
 
 ```bash
-cargo run --example extract_topic /path/to/rosbag2_directory /topic_name output.txt
-```
-
-### Extract Topic Data to Files
-
-Extract topic data and save as appropriate file formats:
-
-```bash
-# Extract geometry/navigation data to CSV
-cargo run --example extract_topic_data /path/to/bag /odom ./extracted_data/
-
-# Extract image data to image files
-cargo run --example extract_topic_data /path/to/bag /camera/image_raw ./extracted_images/
-
-# Extract IMU data to CSV with timestamps
-cargo run --example extract_topic_data /path/to/bag /imu/data ./extracted_imu/
-```
-
-### Read Test Bags (Demo)
-
-```bash
-cargo run --example read_test_bags
+cargo run --bin write_dummy_bag -- /path/to/output_bag
 ```
 
 ## 🗂️ Supported ROS2 Bag Formats
@@ -139,6 +102,7 @@ cargo run --example read_test_bags
 The library is structured into several modules:
 
 - **`reader`** - Main `Reader` struct for opening and reading bags
+- **`writer`** - Main `Writer` struct for creating and writing bags
 - **`metadata`** - Parsing and validation of `metadata.yaml` files
 - **`storage`** - Storage backend implementations (SQLite3, MCAP)
 - **`types`** - Core data structures (Connection, Message, TopicInfo, etc.)
@@ -167,41 +131,6 @@ match Reader::new("/path/to/bag") {
 }
 ```
 
-## 🔍 Advanced Usage
-
-### Filter Messages by Topic
-
-```rust
-use rosbags_rs::Reader;
-
-let mut reader = Reader::new("/path/to/bag")?;
-reader.open()?;
-
-// Filter messages for specific topics
-let target_topics = vec!["/camera/image_raw", "/imu/data"];
-for message_result in reader.messages()? {
-    let message = message_result?;
-    if target_topics.contains(&message.topic.as_str()) {
-        println!("Found message on topic: {}", message.topic);
-    }
-}
-```
-
-### Filter by Time Range
-
-```rust
-// Filter by time range (nanoseconds since epoch)
-let start_time = 1234567890000000000;
-let end_time = 1234567891000000000;
-
-for message_result in reader.messages()? {
-    let message = message_result?;
-    if message.timestamp >= start_time && message.timestamp <= end_time {
-        println!("Message in time range: {}", message.timestamp);
-    }
-}
-```
-
 ## 📊 Supported ROS2 Message Types
 
 This library supports **94+ ROS2 message types** across all major categories:
@@ -222,6 +151,8 @@ This Rust implementation provides **100% compatibility** with the Python rosbags
 |---------|----------------|------------|
 | SQLite3 reading | ✅ | ✅ |
 | MCAP reading | ✅ | ✅ |
+| SQLite3 writing | ✅ | ✅ |
+| MCAP writing | ✅ | ✅ |
 | CDR deserialization | ✅ | ✅ |
 | Message filtering | ✅ | ✅ |
 | Compression support | ✅ | ✅ |
@@ -233,93 +164,55 @@ This Rust implementation provides **100% compatibility** with the Python rosbags
 ## 🚀 Performance
 
 - **Zero-copy message reading** where possible
-- **Efficient memory usage** with Rust's ownership system
-- **Fast SQLite3 and MCAP parsing** with optimized queries
-- **Comprehensive benchmarks** included in test suite
+- **Optimized SQL queries** for SQLite3 backend
+- **SIMD-accelerated parsing** for MCAP backend (future work)
+- **Lazy-loading of message data** - only read what you need
+- **Minimal memory allocations** - focus on performance and efficiency
+- **Bulk operations** - Batch reading and writing for maximum throughput
+
+The library is designed for high-throughput applications where performance is critical. The `bag_filter` tool uses optimized raw copying by default, similar to `ros2 bag convert`, for maximum speed.
 
 ## 🧪 Testing
 
-The library includes a comprehensive, self-contained test suite:
+This library includes a comprehensive test suite that validates correctness against the Python `rosbags` library. All tests are self-contained and do not require an external ROS2 installation.
 
-### Run All Tests
-
-```bash
-cargo test
-```
-
-### Run Specific Test Categories
+### Running Tests
 
 ```bash
-# Integration tests with cross-validation
-cargo test --test integration_tests
-
-# Performance tests
-cargo test --release
-
-# Feature-specific tests
-cargo test --features sqlite
-cargo test --features mcap
+cargo test -- --nocapture
 ```
 
-### Test Coverage
+The tests cover:
+- **Unit tests** for individual modules
+- **Integration tests** for reading complete bag files
+- **Compatibility tests** to ensure byte-for-byte identical results with Python `rosbags`
+- **Fuzz testing** to uncover edge cases and potential panics
 
-The test suite validates:
-- ✅ **All 94 message types** across 6 categories
-- ✅ **188 test messages** (2 per topic) in both SQLite3 and MCAP formats
-- ✅ **Byte-for-byte compatibility** with Python rosbags library
-- ✅ **Message filtering** by topic and timestamp
-- ✅ **Metadata consistency** between formats
-- ✅ **Error handling** for edge cases
+### Test Data
 
-All tests are **self-contained** and run without external dependencies or Python installations.
+The test bags are generated using the `generate_test_bags.py` script and are included in the repository.
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit issues and pull requests.
+Contributions are welcome! Please feel free to submit a pull request or open an issue.
 
 ### Development Setup
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/amin-abouee/rosbags-rs.git
-   cd rosbags-rs
-   ```
+1. Clone the repository
+2. Install Rust: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+3. Build the project: `cargo build`
+4. Run tests: `cargo test`
 
-2. **Install Rust** (1.70+ required)
-   ```bash
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-   ```
+### Code Style
 
-3. **Run tests**
-   ```bash
-   cargo test
-   ```
+This project uses `rustfmt` for code formatting and `clippy` for linting. Please ensure your contributions are formatted and free of warnings.
 
-4. **Run examples**
-   ```bash
-   cargo run --example bag_info /path/to/bag
-   ```
+```bash
+cargo fmt
+cargo clippy -- -D warnings
+```
 
-5. **Check formatting and linting**
-   ```bash
-   cargo fmt --check
-   cargo clippy -- -D warnings
-   ```
+## 📜 License
 
-### Contribution Guidelines
-
-- Follow Rust best practices and idioms
-- Add tests for new functionality
-- Update documentation for API changes
-- Ensure CI passes on all platforms
-
-## 📄 License
-
-This project is licensed under the **Apache License 2.0** - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Inspired by the excellent [rosbags](https://gitlab.com/ternaris/rosbags) Python library by Ternaris
-- Built for the ROS2 robotics ecosystem
-- Thanks to all contributors and the Rust community
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
 

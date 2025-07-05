@@ -51,9 +51,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let topic_name = &args[2];
     let output_folder = &args[3];
 
-    println!("📦 Opening bag: {}", bag_path);
-    println!("🎯 Target topic: {}", topic_name);
-    println!("📁 Output folder: {}", output_folder);
+    println!("📦 Opening bag: {bag_path}");
+    println!("🎯 Target topic: {topic_name}");
+    println!("📁 Output folder: {output_folder}");
 
     // Create output directory
     fs::create_dir_all(output_folder)?;
@@ -67,7 +67,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let target_topic = topics
         .iter()
         .find(|topic| topic.name.as_str() == topic_name)
-        .ok_or_else(|| format!("Topic '{}' not found in bag", topic_name))?;
+        .ok_or_else(|| format!("Topic '{topic_name}' not found in bag"))?;
 
     println!(
         "✅ Found topic: {} ({})",
@@ -109,7 +109,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("\n🎉 Extraction completed successfully!");
-    println!("📁 Check output folder: {}", output_folder);
+    println!("📁 Check output folder: {output_folder}");
 
     Ok(())
 }
@@ -153,10 +153,7 @@ fn extract_images(
                     }
                 }
                 Err(e) => {
-                    eprintln!(
-                        "⚠️  Warning: Failed to extract image {}: {}",
-                        image_count, e
-                    );
+                    eprintln!("⚠️  Warning: Failed to extract image {image_count}: {e}");
                 }
             }
 
@@ -164,15 +161,15 @@ fn extract_images(
         }
     }
 
-    println!("✅ Extracted {} images", image_count);
+    println!("✅ Extracted {image_count} images");
 
     // Create a summary file
     let summary_path = PathBuf::from(output_folder).join("image_summary.txt");
     let mut summary_file = fs::File::create(summary_path)?;
     writeln!(summary_file, "Image Extraction Summary")?;
     writeln!(summary_file, "=======================")?;
-    writeln!(summary_file, "Topic: {}", topic_name)?;
-    writeln!(summary_file, "Total images: {}", image_count)?;
+    writeln!(summary_file, "Topic: {topic_name}")?;
+    writeln!(summary_file, "Total images: {image_count}")?;
     writeln!(summary_file, "Format: PNG files")?;
     writeln!(summary_file, "Naming: image_XXXXXX_timestamp.png")?;
 
@@ -211,12 +208,12 @@ fn extract_to_csv(
 
             message_count += 1;
             if message_count % 1000 == 0 {
-                println!("  Processed {} messages...", message_count);
+                println!("  Processed {message_count} messages...");
             }
         }
     }
 
-    println!("✅ Exported {} messages to CSV", message_count);
+    println!("✅ Exported {message_count} messages to CSV");
     println!("📄 CSV file: {}", csv_path.display());
 
     Ok(())
@@ -638,11 +635,11 @@ fn extract_imu_message(
                 ]);
             }
             Err(e) => {
-                return Err(format!("Failed to deserialize IMU message: {}", e).into());
+                return Err(format!("Failed to deserialize IMU message: {e}").into());
             }
         },
         Err(e) => {
-            return Err(format!("Failed to create CDR deserializer: {}", e).into());
+            return Err(format!("Failed to create CDR deserializer: {e}").into());
         }
     }
 

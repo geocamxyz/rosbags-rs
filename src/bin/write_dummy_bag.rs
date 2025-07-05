@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output_path = args.get(1).unwrap_or(&"./dummy_bag".to_string()).clone();
     let enable_compression = args.contains(&"--compression".to_string());
 
-    println!("🚀 Creating dummy ROS2 bag file at: {}", output_path);
+    println!("🚀 Creating dummy ROS2 bag file at: {output_path}");
     if enable_compression {
         println!("📦 Compression: ENABLED (zstd)");
     }
@@ -108,10 +108,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "🎉 Successfully created dummy bag with {} topics!",
         connections.len()
     );
-    println!("📁 Bag location: {}", output_path);
+    println!("📁 Bag location: {output_path}");
 
     // Print some stats
-    if std::fs::read_to_string(format!("{}/metadata.yaml", output_path)).is_ok() {
+    if std::fs::read_to_string(format!("{output_path}/metadata.yaml")).is_ok() {
         println!("\n📊 Bag Information:");
         println!("   Storage: SQLite3");
         if enable_compression {
@@ -332,7 +332,7 @@ fn create_sample_message_data(message_type: &str) -> Vec<u8> {
             data
         }
         "std_msgs/msg/Int32" => 42i32.to_le_bytes().to_vec(),
-        "std_msgs/msg/Float64" => 3.14159f64.to_le_bytes().to_vec(),
+        "std_msgs/msg/Float64" => std::f64::consts::PI.to_le_bytes().to_vec(),
         "std_msgs/msg/Bool" => {
             vec![1u8] // true
         }
