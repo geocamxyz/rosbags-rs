@@ -1,3 +1,4 @@
+#![cfg(any(feature = "write-only", feature = "default"))]
 //! Example: Write a dummy ROS2 bag file with all supported message types
 //!
 //! This example demonstrates how to create a ROS2 bag file from scratch using the rosbags-rs

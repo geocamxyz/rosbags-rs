@@ -1,3 +1,4 @@
+#![cfg(not(feature = "write-only"))]
 //! Example: Display comprehensive ROS2 bag file information
 //!
 //! This example provides detailed information about a ROS2 bag file including:

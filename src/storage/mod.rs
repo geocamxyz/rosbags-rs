@@ -2,8 +2,11 @@
 
 use crate::error::Result;
 use crate::types::{
-    CompressionMode, Connection, Message, MessageDefinition, RawMessage, StoragePlugin,
+    CompressionMode, Connection, StoragePlugin,
 };
+#[cfg(not(feature = "write-only"))]
+use crate::types::{Message, MessageDefinition, RawMessage};
+#[cfg(not(feature = "write-only"))]
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -13,6 +16,7 @@ pub mod sqlite;
 #[cfg(feature = "mcap")]
 pub mod mcap;
 
+#[cfg(not(feature = "write-only"))]
 /// Trait for storage backend implementations (reading)
 pub trait StorageReader {
     /// Open the storage files for reading
@@ -92,6 +96,7 @@ pub trait StorageWriter: std::any::Any {
     fn as_any(&self) -> &dyn std::any::Any;
 }
 
+#[cfg(not(feature = "write-only"))]
 /// Create a storage reader for the given storage identifier
 pub fn create_storage_reader(
     storage_id: &str,

@@ -1,3 +1,4 @@
+#![cfg(not(feature = "write-only"))]
 //! Example: Copy and filter ROS2 bag files
 //!
 //! This example demonstrates how to read an existing ROS2 bag file and write it to a new

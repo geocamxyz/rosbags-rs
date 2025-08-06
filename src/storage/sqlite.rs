@@ -1,12 +1,22 @@
 //! SQLite3 storage backend implementation
 
-use crate::error::{ReaderError, Result};
-use crate::storage::StorageReader;
-use crate::types::{Connection, Message, MessageDefinition, MessageDefinitionFormat};
+use crate::error::Result;
+use crate::types::{Connection, MessageDefinitionFormat};
 use rusqlite::Connection as SqliteConnection;
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::collections::HashMap;
 
+#[cfg(not(feature = "write-only"))]
+use crate::types::{MessageDefinition};
+
+#[cfg(not(feature = "write-only"))]
+use crate::error::ReaderError;
+#[cfg(not(feature = "write-only"))]
+use crate::storage::StorageReader;
+#[cfg(not(feature = "write-only"))]
+use crate::types::Message;
+
+#[cfg(not(feature = "write-only"))]
 /// SQLite3 storage reader implementation
 pub struct SqliteReader {
     /// Database file paths
@@ -23,6 +33,7 @@ pub struct SqliteReader {
     is_open: bool,
 }
 
+#[cfg(not(feature = "write-only"))]
 impl SqliteReader {
     /// Create a new SQLite reader
     pub fn new(paths: Vec<&Path>, connections: Vec<Connection>) -> Result<Self> {
@@ -168,6 +179,7 @@ impl SqliteReader {
     }
 }
 
+#[cfg(not(feature = "write-only"))]
 impl StorageReader for SqliteReader {
     fn open(&mut self) -> Result<()> {
         if self.is_open {
@@ -461,6 +473,7 @@ impl StorageReader for SqliteReader {
     }
 }
 
+#[cfg(not(feature = "write-only"))]
 impl SqliteReader {
     /// Get all topics and their message counts directly from the database
     pub fn get_topics_from_database(&self) -> Result<Vec<Connection>> {

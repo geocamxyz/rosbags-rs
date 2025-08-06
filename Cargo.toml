@@ -16,23 +16,19 @@ rust-version = "1.70"
 [dependencies]
 # Core dependencies
 serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.9"
+serde_yml = "0.0.12"
 thiserror = "1.0"
 anyhow = "1.0"
 clap = { version = "4.0", features = ["derive"] }
 
 # Database support
-rusqlite = { version = "0.31", features = ["bundled"], optional = true }
+rusqlite = { version = "0.37", optional = true, features = ["bundled"] }
 
 # Compression support
 zstd = { version = "0.13", optional = true }
 
 # Time handling
 chrono = { version = "0.4", features = ["serde"] }
-
-# Binary data handling
-byteorder = "1.5"
-bytes = "1.10"
 
 # Async support (optional, for future use)
 tokio = { version = "1.45", features = ["rt", "fs"], optional = true }
@@ -42,18 +38,39 @@ mcap = { version = "0.8", optional = true }
 memmap2 = { version = "0.9", optional = true }
 
 # Binary dependencies
-hex = "0.4"
-image = "0.24"
-
+hex = { version = "0.4", optional = true }
+image = { version = "0.24", optional = true }
 [dev-dependencies]
 tempfile = "3.20"
 pretty_assertions = "1.4"
 
 [features]
-default = ["sqlite", "mcap", "compression"]
+default = ["sqlite", "mcap", "compression", "bin-tools"]
 sqlite = ["rusqlite"]
 mcap = ["dep:mcap", "dep:memmap2"]
 compression = ["dep:zstd"]
 async = ["tokio"]
+write-only = ["sqlite"]
+bin-tools = ["dep:hex", "dep:image"]
+
+[[bin]]
+name = "bag_info"
+path = "src/bin/bag_info.rs"
+required-features = ["default"]
+
+[[bin]]
+name = "bag_filter"
+path = "src/bin/bag_filter.rs"
+required-features = ["default"]
+
+[[bin]]
+name = "extract_topic_data"
+path = "src/bin/extract_topic_data.rs"
+required-features = ["default", "bin-tools"]
+
+[[bin]]
+name = "write_dummy_bag"
+path = "src/bin/write_dummy_bag.rs"
+required-features = ["write-only"]
 
 

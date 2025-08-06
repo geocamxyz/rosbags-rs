@@ -32,8 +32,10 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rosbags-rs = "0.2.0"
+rosbags-rs = "0.3.4"
 ```
+
+For minimal installations or custom feature selection, see [FEATURES.md](FEATURES.md) for available feature flags, including the `write-only` feature for minimal dependencies.
 
 ## 🔧 Command Line Tools
 

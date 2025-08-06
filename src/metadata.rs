@@ -110,7 +110,7 @@ impl BagMetadata {
             path: path.to_path_buf(),
         })?;
 
-        let metadata: BagMetadata = serde_yaml::from_str(&content)?;
+        let metadata: BagMetadata = serde_yml::from_str(&content)?;
 
         // Validate the metadata
         metadata.validate()?;

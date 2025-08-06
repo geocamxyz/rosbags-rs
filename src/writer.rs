@@ -377,7 +377,7 @@ impl Writer {
         let metadata = BagMetadata {
             rosbag2_bagfile_information: bag_info,
         };
-        let metadata_yaml = serde_yaml::to_string(&metadata)?;
+        let metadata_yaml = serde_yml::to_string(&metadata)?;
 
         // Close storage
         if let Some(mut storage) = self.storage.take() {
@@ -494,7 +494,7 @@ impl Writer {
         }
 
         // Simple YAML serialization for QoS profiles
-        let yaml = serde_yaml::to_string(profiles)?;
+        let yaml = serde_yml::to_string(profiles)?;
         Ok(yaml.trim().to_string())
     }
 
@@ -523,6 +523,7 @@ impl Writer {
             let compressed_data = zstd::encode_all(input_data.as_slice(), 0)?;
             std::fs::write(&compressed_file, compressed_data)?;
             std::fs::remove_file(&storage_file)?;
+            Ok(())
         }
 
         #[cfg(not(feature = "compression"))]
@@ -531,8 +532,6 @@ impl Writer {
                 format: "zstd (feature not enabled)".to_string(),
             });
         }
-
-        Ok(())
     }
 
     /// Write a raw serialized message directly without any deserialization/serialization overhead.

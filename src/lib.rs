@@ -177,11 +177,13 @@ pub mod metadata;
 /// Main reader interface.
 ///
 /// The [`Reader`] struct provides the primary interface for reading ROS2 bag files.
+#[cfg(not(feature = "write-only"))]
 pub mod reader;
 
 /// Main writer interface.
 ///
 /// The [`Writer`] struct provides the primary interface for writing ROS2 bag files.
+#[cfg(any(feature = "write-only", feature = "default"))]
 pub mod writer;
 
 /// Storage backend implementations.
@@ -197,12 +199,17 @@ pub mod types;
 // Re-export main types for convenience
 pub use error::{BagError, ReaderError, Result, WriterResult};
 pub use metadata::{BagMetadata, TopicMetadata};
+#[cfg(not(feature = "write-only"))]
 pub use reader::Reader;
 pub use types::{
     CompressionFormat, CompressionMode, Connection, Message, StoragePlugin, TopicInfo,
 };
+
+// Export Writer only when write-only feature is enabled
+#[cfg(any(feature = "write-only", feature = "default"))]
 pub use writer::Writer;
 
+#[cfg(not(feature = "write-only"))]
 /// Fast bag metadata reading without opening storage files
 ///
 /// This function reads only the metadata.yaml file to quickly extract bag information

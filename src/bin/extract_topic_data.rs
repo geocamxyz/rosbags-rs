@@ -1,3 +1,4 @@
+#![cfg(all(not(feature = "write-only"), feature = "bin-tools"))]
 //! Example: Extract topic data from ROS2 bag files
 //!
 //! This example reads a specific topic from a ROS2 bag file and exports the data
